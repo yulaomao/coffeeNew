@@ -1,0 +1,1162 @@
+{% extends "base.html" %}
+
+{% block title %}设备详情 - {{ device_id }} - 咖啡管理{% endblock %}
+
+{% block content %}
+<!-- Device Status Bar -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card" id="deviceStatusCard">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <h3 class="mb-0">
+                                <i class="bi bi-cpu text-primary"></i>
+                                <span id="deviceAlias">{{ device_id }}</span>
+                            </h3>
+                            <p class="text-muted mb-0">设备 ID: {{ device_id }}</p>
+                        </div>
+                        <div class="vr me-3"></div>
+                        <div>
+                            <span id="deviceStatus" class="badge bg-secondary fs-6">加载中...</span>
+                            <div class="mt-1">
+                                <small class="text-muted">
+                                    <i class="bi bi-clock"></i> 运行时间: <span id="deviceUptime">--</span>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-outline-primary btn-sm" onclick="refreshDeviceInfo()">
+                                <i class="bi bi-arrow-clockwise"></i> 刷新
+                            </button>
+                            <button class="btn btn-warning btn-sm" onclick="syncDeviceState()">
+                                <i class="bi bi-arrow-repeat"></i> 同步状态
+                            </button>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                今日订单: <span id="todayOrders" class="fw-bold">--</span> |
+                                今日收入: <span id="todayRevenue" class="fw-bold">--</span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Materials and Monthly Sales Row -->
+<div class="row mb-4">
+    <!-- Materials Cards -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <h5 class="mb-0 me-3">
+                            <i class="bi bi-box-seam"></i> 物料状态
+                        </h5>
+                        <div id="materialsStatusSummary" class="d-flex gap-2">
+                            <!-- Status summary badges will be populated here -->
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="loadMaterials()">
+                            <i class="bi bi-arrow-clockwise"></i> 刷新
+                        </button>
+                        <button class="btn btn-sm btn-success" onclick="reportMaterials()">
+                            <i class="bi bi-upload"></i> 上报
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="materialsLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="mt-2 text-muted mb-0">加载物料信息...</p>
+                </div>
+                
+                <!-- Materials Status Overview -->
+                <div id="materialsOverview" class="row mb-3" style="display: none;">
+                    <div class="col-12">
+                        <div class="alert alert-light border d-flex justify-content-between align-items-center py-2 px-3 mb-0">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-info-circle text-info me-2"></i>
+                                <span class="small">物料状态总览</span>
+                            </div>
+                            <div class="d-flex gap-3 small">
+                                <span>总计: <strong id="totalBins">0</strong></span>
+                                <span class="text-success">正常: <strong id="normalBins">0</strong></span>
+                                <span class="text-warning">不足: <strong id="lowBins">0</strong></span>
+                                <span class="text-danger">空: <strong id="emptyBins">0</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Materials Grid -->
+                <div id="materialsContainer" class="row g-3" style="display: none;">
+                    <!-- Materials cards will be populated here -->
+                </div>
+                
+                <!-- Empty State -->
+                <div id="materialsEmptyState" class="text-center py-5" style="display: none;">
+                    <i class="bi bi-box text-muted" style="font-size: 3rem;"></i>
+                    <p class="text-muted mt-3">暂无物料信息</p>
+                    <button class="btn btn-outline-primary" onclick="loadMaterials()">
+                        <i class="bi bi-arrow-clockwise"></i> 重新加载
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Monthly Sales Chart -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-bar-chart"></i> 本月销售趋势</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="monthlySalesChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Orders and Commands Row -->
+<div class="row mb-4">
+    <!-- Recent Orders -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-receipt"></i> 最近订单 
+                        <span id="ordersCount" class="badge bg-primary">0</span>
+                    </h5>
+                    <a href="/orders?device_id={{ device_id }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye"></i> 查看全部
+                    </a>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="ordersLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="mt-2 text-muted mb-0">加载订单信息...</p>
+                </div>
+                
+                <div id="ordersContainer" style="display: none; max-height: 400px; overflow-y: auto;">
+                    <!-- Orders will be populated here -->
+                </div>
+                
+                <div id="ordersEmptyState" class="text-center py-4" style="display: none;">
+                    <i class="bi bi-receipt text-muted" style="font-size: 2.5rem;"></i>
+                    <p class="text-muted mt-2 mb-0">暂无订单记录</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Command History -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-terminal"></i> 命令历史 
+                        <span id="commandsCount" class="badge bg-primary">0</span>
+                    </h5>
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadCommands()">
+                        <i class="bi bi-arrow-clockwise"></i> 刷新
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="commandsLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                    <p class="mt-2 text-muted mb-0">加载命令历史...</p>
+                </div>
+                
+                <div id="commandsContainer" style="display: none; max-height: 400px; overflow-y: auto;">
+                    <!-- Commands will be populated here -->
+                </div>
+                
+                <div id="commandsEmptyState" class="text-center py-4" style="display: none;">
+                    <i class="bi bi-terminal text-muted" style="font-size: 2.5rem;"></i>
+                    <p class="text-muted mt-2 mb-0">暂无命令记录</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Remote Operations Panel -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-broadcast"></i> 远程操作面板</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button class="btn btn-primary" onclick="showCommandModal('sync')">
+                                <i class="bi bi-arrow-repeat"></i>
+                                <div class="small">同步数据</div>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button class="btn btn-info" onclick="showCommandModal('set_params')">
+                                <i class="bi bi-gear"></i>
+                                <div class="small">设置参数</div>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button class="btn btn-warning" onclick="showCommandModal('upgrade')">
+                                <i class="bi bi-download"></i>
+                                <div class="small">固件升级</div>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="d-grid">
+                            <button class="btn btn-danger" onclick="showCommandModal('restart')" data-dangerous="true">
+                                <i class="bi bi-power"></i>
+                                <div class="small">重启设备</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Command Modal -->
+<div class="modal fade" id="commandModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-broadcast"></i> 
+                    <span id="commandModalTitle">发送命令</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="commandModalContent">
+                    <!-- Content will be populated based on command type -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="confirmCommandBtn" onclick="sendCommand()">
+                    <i class="bi bi-send"></i> 发送命令
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Danger Confirmation Modal -->
+<div class="modal fade" id="dangerModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle"></i> 危险操作确认
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>您即将执行危险操作！</strong></p>
+                <p id="dangerModalMessage">此操作可能影响设备正常运行，请确认是否继续？</p>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="dangerConfirm">
+                    <label class="form-check-label" for="dangerConfirm">
+                        我确认要执行此操作
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="dangerConfirmBtn" onclick="confirmDangerousAction()" disabled>
+                    <i class="bi bi-exclamation-triangle"></i> 确认执行
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const deviceId = '{{ device_id }}';
+let monthlySalesChart;
+let currentCommandType = null;
+let pendingDangerousAction = null;
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    loadDeviceInfo();
+    loadMaterials();
+    loadRecentOrders();
+    loadCommands();
+    initMonthlySalesChart();
+    
+    // Set up danger confirmation checkbox
+    document.getElementById('dangerConfirm').addEventListener('change', function() {
+        document.getElementById('dangerConfirmBtn').disabled = !this.checked;
+    });
+    
+    // Auto-refresh every 30 seconds
+    setInterval(function() {
+        refreshDeviceInfo();
+        loadMaterials();
+    }, 30000);
+});
+
+async function loadDeviceInfo() {
+    try {
+        const data = await apiCall(`/devices/${deviceId}/summary`);
+        
+        // Update device info
+        document.getElementById('deviceAlias').textContent = data.alias;
+        document.getElementById('deviceUptime').textContent = 
+            data.uptime_hours ? `${data.uptime_hours.toFixed(1)}小时` : '--';
+        document.getElementById('todayOrders').textContent = data.total_orders_today || 0;
+        document.getElementById('todayRevenue').textContent = 
+            data.revenue_today ? `¥${data.revenue_today.toFixed(2)}` : '¥0.00';
+        
+        // Update status badge
+        const statusElement = document.getElementById('deviceStatus');
+        statusElement.className = `badge fs-6 ${getStatusBadgeClass(data.status)}`;
+        statusElement.textContent = getStatusText(data.status);
+        
+    } catch (error) {
+        console.error('Failed to load device info:', error);
+        showAlert('设备信息加载失败', 'danger');
+    }
+}
+
+async function loadMaterials() {
+    try {
+        const loadingEl = document.getElementById('materialsLoading');
+        const containerEl = document.getElementById('materialsContainer');
+        const overviewEl = document.getElementById('materialsOverview');
+        const emptyStateEl = document.getElementById('materialsEmptyState');
+        
+        // Show loading state
+        loadingEl.style.display = 'block';
+        containerEl.style.display = 'none';
+        overviewEl.style.display = 'none';
+        emptyStateEl.style.display = 'none';
+        
+        const data = await apiCall(`/devices/${deviceId}/materials`);
+        displayMaterials(data.bins);
+        
+    } catch (error) {
+        console.error('Failed to load materials:', error);
+        
+        // Show error state
+        const container = document.getElementById('materialsContainer');
+        const emptyState = document.getElementById('materialsEmptyState');
+        
+        container.style.display = 'none';
+        document.getElementById('materialsOverview').style.display = 'none';
+        
+        emptyState.innerHTML = `
+            <i class="bi bi-exclamation-triangle text-danger" style="font-size: 3rem;"></i>
+            <p class="text-danger mt-3">物料信息加载失败</p>
+            <p class="text-muted">${error.message || '请检查网络连接或稍后重试'}</p>
+            <button class="btn btn-outline-primary" onclick="loadMaterials()">
+                <i class="bi bi-arrow-clockwise"></i> 重新加载
+            </button>
+        `;
+        emptyState.style.display = 'block';
+        
+        showAlert('物料信息加载失败', 'danger');
+    } finally {
+        document.getElementById('materialsLoading').style.display = 'none';
+    }
+}
+
+function displayMaterials(bins) {
+    const container = document.getElementById('materialsContainer');
+    const overview = document.getElementById('materialsOverview');
+    const summary = document.getElementById('materialsStatusSummary');
+    const emptyState = document.getElementById('materialsEmptyState');
+    
+    // Hide all first
+    container.style.display = 'none';
+    overview.style.display = 'none';
+    emptyState.style.display = 'none';
+    
+    if (!bins || bins.length === 0) {
+        emptyState.style.display = 'block';
+        return;
+    }
+    
+    // Calculate statistics
+    const stats = {
+        total: bins.length,
+        normal: 0,
+        low: 0,
+        empty: 0
+    };
+    
+    bins.forEach(bin => {
+        const percentage = (bin.remaining / bin.capacity) * 100;
+        if (bin.remaining === 0) {
+            stats.empty++;
+        } else if (percentage <= bin.threshold_low_pct) {
+            stats.low++;
+        } else {
+            stats.normal++;
+        }
+    });
+    
+    // Update overview statistics
+    document.getElementById('totalBins').textContent = stats.total;
+    document.getElementById('normalBins').textContent = stats.normal;
+    document.getElementById('lowBins').textContent = stats.low;
+    document.getElementById('emptyBins').textContent = stats.empty;
+    
+    // Update header summary badges
+    summary.innerHTML = '';
+    if (stats.empty > 0) {
+        summary.innerHTML += `<span class="badge bg-danger small">${stats.empty} 空</span>`;
+    }
+    if (stats.low > 0) {
+        summary.innerHTML += `<span class="badge bg-warning text-dark small">${stats.low} 不足</span>`;
+    }
+    if (stats.normal > 0) {
+        summary.innerHTML += `<span class="badge bg-success small">${stats.normal} 正常</span>`;
+    }
+    
+    // Clear and populate materials container
+    container.innerHTML = '';
+    
+    bins.forEach(bin => {
+        const percentage = (bin.remaining / bin.capacity) * 100;
+        const isLow = percentage <= bin.threshold_low_pct;
+        const isEmpty = bin.remaining === 0;
+        
+        let statusClass, progressClass, statusIcon, statusText;
+        
+        if (isEmpty) {
+            statusClass = 'border-danger bg-danger-subtle';
+            progressClass = 'bg-danger';
+            statusIcon = 'bi-x-circle-fill text-danger';
+            statusText = '已空';
+        } else if (isLow) {
+            statusClass = 'border-warning bg-warning-subtle';
+            progressClass = 'bg-warning';
+            statusIcon = 'bi-exclamation-triangle-fill text-warning';
+            statusText = '不足';
+        } else {
+            statusClass = 'border-success bg-success-subtle';
+            progressClass = 'bg-success';
+            statusIcon = 'bi-check-circle-fill text-success';
+            statusText = '正常';
+        }
+        
+        const cardHtml = `
+            <div class="col-6 col-md-4 col-lg-3">
+                <div class="card ${statusClass} h-100">
+                    <div class="card-body p-3">
+                        <!-- Header -->
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="flex-grow-1 me-2">
+                                <h6 class="card-title mb-1 fw-bold small">${bin.material_name}</h6>
+                                <small class="text-muted d-block" style="font-size: 0.75rem;">${bin.material_code}</small>
+                            </div>
+                            <span class="badge bg-secondary small">仓${bin.bin_index}</span>
+                        </div>
+                        
+                        <!-- Status and Percentage -->
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="bi ${statusIcon} me-1" style="font-size: 0.9rem;"></i>
+                                <span class="small fw-bold">${statusText}</span>
+                            </div>
+                            <span class="text-muted small">${percentage.toFixed(1)}%</span>
+                        </div>
+                        
+                        <!-- Progress Bar -->
+                        <div class="progress mb-2" style="height: 6px;">
+                            <div class="progress-bar ${progressClass}" 
+                                 style="width: ${Math.max(percentage, 2)}%" 
+                                 role="progressbar" 
+                                 aria-valuenow="${percentage}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                            </div>
+                        </div>
+                        
+                        <!-- Compact Quantity Information -->
+                        <div class="text-center mb-2">
+                            <div class="d-flex justify-content-center align-items-baseline">
+                                <span class="fw-bold text-primary me-1" style="font-size: 1.1rem;">${bin.remaining}</span>
+                                <small class="text-muted">/ ${bin.capacity} ${bin.unit}</small>
+                            </div>
+                        </div>
+                        
+                        <!-- Last Sync Time -->
+                        <div class="text-center">
+                            <small class="text-muted" style="font-size: 0.7rem;">
+                                <i class="bi bi-clock me-1"></i>
+                                ${formatLastSync(bin.last_sync)}
+                            </small>
+                        </div>
+                        
+                        <!-- Alert Link for Low/Empty -->
+                        ${(isLow || isEmpty) ? `
+                        <div class="mt-2">
+                            <a href="/alarms?device_id=${deviceId}&type=material_low" 
+                               class="btn btn-sm btn-outline-danger w-100" style="font-size: 0.75rem; padding: 0.25rem;">
+                                <i class="bi bi-exclamation-triangle"></i> 告警
+                            </a>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', cardHtml);
+    });
+    
+    // Show the containers
+    overview.style.display = 'block';
+    container.style.display = 'block';
+}
+
+async function loadRecentOrders() {
+    try {
+        const loadingEl = document.getElementById('ordersLoading');
+        const containerEl = document.getElementById('ordersContainer');
+        const emptyStateEl = document.getElementById('ordersEmptyState');
+        
+        loadingEl.style.display = 'block';
+        containerEl.style.display = 'none';
+        emptyStateEl.style.display = 'none';
+        
+        const data = await apiCall(`/devices/${deviceId}/orders?limit=10`);
+        displayOrders(data.orders);
+        document.getElementById('ordersCount').textContent = data.total_count;
+        
+    } catch (error) {
+        console.error('Failed to load orders:', error);
+        
+        const emptyState = document.getElementById('ordersEmptyState');
+        emptyState.innerHTML = `
+            <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2.5rem;"></i>
+            <p class="text-danger mt-2 mb-0">订单信息加载失败</p>
+            <small class="text-muted">${error.message || '请检查网络连接或稍后重试'}</small>
+        `;
+        emptyState.style.display = 'block';
+        
+        showAlert('订单信息加载失败', 'danger');
+    } finally {
+        document.getElementById('ordersLoading').style.display = 'none';
+    }
+}
+
+function displayOrders(orders) {
+    const container = document.getElementById('ordersContainer');
+    const emptyState = document.getElementById('ordersEmptyState');
+    
+    if (!orders || orders.length === 0) {
+        container.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    orders.forEach(order => {
+        const itemNames = order.items.map(item => `${item.name} x${item.qty}`).join(', ');
+        const statusBadge = getPaymentStatusBadge(order.payment_status);
+        const exceptionBadge = order.is_exception ? '<span class="badge bg-warning text-dark ms-1">异常</span>' : '';
+        
+        const orderHtml = `
+            <div class="d-flex align-items-center p-3 border-bottom">
+                <div class="flex-grow-1">
+                    <div class="d-flex align-items-center mb-1">
+                        <strong class="text-primary">${order.order_id}</strong>
+                        <div class="ms-2">
+                            ${statusBadge}
+                            ${exceptionBadge}
+                        </div>
+                    </div>
+                    <div class="text-muted small mb-1">${itemNames}</div>
+                    <div class="text-muted small">
+                        <i class="bi bi-clock"></i> ${formatDateTime(order.device_ts)}
+                    </div>
+                </div>
+                <div class="text-end ms-3">
+                    <div class="fw-bold text-success mb-1">¥${order.total_price.toFixed(2)}</div>
+                    <div class="text-muted small">${getPaymentMethodText(order.payment_method)}</div>
+                </div>
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', commandHtml);
+    });
+    
+    container.style.display = 'block';
+    emptyState.style.display = 'none';
+}
+
+async function loadCommands() {
+    try {
+        const loadingEl = document.getElementById('commandsLoading');
+        const containerEl = document.getElementById('commandsContainer');
+        const emptyStateEl = document.getElementById('commandsEmptyState');
+        
+        loadingEl.style.display = 'block';
+        containerEl.style.display = 'none';
+        emptyStateEl.style.display = 'none';
+        
+        const data = await apiCall(`/devices/${deviceId}/commands?limit=20`);
+        displayCommands(data.commands);
+        document.getElementById('commandsCount').textContent = data.total_count;
+        
+    } catch (error) {
+        console.error('Failed to load commands:', error);
+        
+        const emptyState = document.getElementById('commandsEmptyState');
+        emptyState.innerHTML = `
+            <i class="bi bi-exclamation-triangle text-danger" style="font-size: 2.5rem;"></i>
+            <p class="text-danger mt-2 mb-0">命令历史加载失败</p>
+            <small class="text-muted">${error.message || '请检查网络连接或稍后重试'}</small>
+        `;
+        emptyState.style.display = 'block';
+        
+        showAlert('命令历史加载失败', 'danger');
+    } finally {
+        document.getElementById('commandsLoading').style.display = 'none';
+    }
+}
+
+function displayCommands(commands) {
+    const container = document.getElementById('commandsContainer');
+    const emptyState = document.getElementById('commandsEmptyState');
+    
+    if (!commands || commands.length === 0) {
+        container.style.display = 'none';
+        emptyState.style.display = 'block';
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    commands.forEach(command => {
+        const statusBadge = getCommandStatusBadge(command.status);
+        const canRetry = command.status === 'fail' && command.attempts < command.max_attempts;
+        
+        const commandHtml = `
+            <div class="d-flex align-items-center p-3 border-bottom">
+                <div class="flex-grow-1">
+                    <div class="d-flex align-items-center mb-1">
+                        <strong class="text-primary">${getCommandTypeText(command.type)}</strong>
+                        <div class="ms-2">${statusBadge}</div>
+                    </div>
+                    <div class="text-muted small mb-1">ID: ${command.command_id}</div>
+                    <div class="text-muted small">
+                        <i class="bi bi-clock"></i> ${formatDateTime(command.issued_at)}
+                    </div>
+                </div>
+                <div class="text-end ms-3">
+                    <div class="small text-muted mb-2">
+                        ${command.attempts}/${command.max_attempts} 次
+                    </div>
+                    <div class="btn-group-vertical btn-group-sm">
+                        <button class="btn btn-outline-info btn-sm" onclick="showCommandResult('${command.command_id}', ${JSON.stringify(command).replace(/"/g, '&quot;')})">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        ${canRetry ? `
+                        <button class="btn btn-outline-warning btn-sm" onclick="retryCommand('${command.command_id}')">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', commandHtml);
+    });
+    
+    container.style.display = 'block';
+    emptyState.style.display = 'none';
+}
+
+function initMonthlySalesChart() {
+    const ctx = document.getElementById('monthlySalesChart').getContext('2d');
+    
+    // Mock monthly sales data
+    const salesData = [
+        { day: 1, amount: 156.30 },
+        { day: 2, amount: 203.45 },
+        { day: 3, amount: 189.20 },
+        { day: 4, amount: 234.67 },
+        { day: 5, amount: 178.90 },
+        { day: 6, amount: 225.78 },
+        { day: 7, amount: 245.50 }
+    ];
+    
+    monthlySalesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: salesData.map(item => `${item.day}日`),
+            datasets: [{
+                label: '日销售额 (¥)',
+                data: salesData.map(item => item.amount),
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '¥' + value.toFixed(0);
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+}
+
+function showCommandModal(commandType) {
+    currentCommandType = commandType;
+    
+    const modal = document.getElementById('commandModal');
+    const title = document.getElementById('commandModalTitle');
+    const content = document.getElementById('commandModalContent');
+    const confirmBtn = document.getElementById('confirmCommandBtn');
+    
+    title.textContent = getCommandTypeText(commandType);
+    
+    // Generate content based on command type
+    let contentHtml = '';
+    
+    switch (commandType) {
+        case 'sync':
+            contentHtml = `
+                <p>同步设备状态和物料信息。</p>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="syncMaterials" checked>
+                    <label class="form-check-label" for="syncMaterials">同步物料状态</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="syncStatus" checked>
+                    <label class="form-check-label" for="syncStatus">同步设备状态</label>
+                </div>
+            `;
+            break;
+            
+        case 'set_params':
+            contentHtml = `
+                <div class="mb-3">
+                    <label for="tempTarget" class="form-label">目标温度 (°C)</label>
+                    <input type="number" class="form-control" id="tempTarget" min="70" max="95" value="85">
+                </div>
+                <div class="mb-3">
+                    <label for="brewTime" class="form-label">冲泡时间 (秒)</label>
+                    <input type="number" class="form-control" id="brewTime" min="15" max="60" value="30">
+                </div>
+            `;
+            break;
+            
+        case 'upgrade':
+            contentHtml = `
+                <div class="mb-3">
+                    <label for="firmwareUrl" class="form-label">固件下载地址</label>
+                    <input type="url" class="form-control" id="firmwareUrl" placeholder="https://...">
+                </div>
+                <div class="mb-3">
+                    <label for="firmwareVersion" class="form-label">固件版本</label>
+                    <input type="text" class="form-control" id="firmwareVersion" placeholder="1.2.4">
+                </div>
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    固件升级过程中设备将暂停服务，预计耗时 5-10 分钟。
+                </div>
+            `;
+            break;
+            
+        case 'restart':
+            contentHtml = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>危险操作：</strong>重启设备将中断当前所有操作和服务，预计重启时间 1-2 分钟。
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="forceRestart">
+                    <label class="form-check-label" for="forceRestart">强制重启（忽略当前任务）</label>
+                </div>
+            `;
+            confirmBtn.className = 'btn btn-danger';
+            break;
+            
+        default:
+            contentHtml = `<p>即将执行 ${getCommandTypeText(commandType)} 操作。</p>`;
+    }
+    
+    content.innerHTML = contentHtml;
+    
+    // Reset button style if not restart
+    if (commandType !== 'restart') {
+        confirmBtn.className = 'btn btn-primary';
+    }
+    
+    new bootstrap.Modal(modal).show();
+}
+
+function sendCommand() {
+    if (!currentCommandType) return;
+    
+    // Check if it's a dangerous operation
+    if (['restart', 'upgrade'].includes(currentCommandType)) {
+        pendingDangerousAction = () => performSendCommand();
+        showDangerModal();
+        return;
+    }
+    
+    performSendCommand();
+}
+
+async function performSendCommand() {
+    try {
+        let payload = {};
+        
+        switch (currentCommandType) {
+            case 'sync':
+                payload = {
+                    sync_materials: document.getElementById('syncMaterials').checked,
+                    sync_status: document.getElementById('syncStatus').checked
+                };
+                break;
+                
+            case 'set_params':
+                payload = {
+                    temperature_target: parseInt(document.getElementById('tempTarget').value),
+                    brew_time: parseInt(document.getElementById('brewTime').value)
+                };
+                break;
+                
+            case 'upgrade':
+                const firmwareUrl = document.getElementById('firmwareUrl').value;
+                const firmwareVersion = document.getElementById('firmwareVersion').value;
+                
+                if (!firmwareUrl || !firmwareVersion) {
+                    showAlert('请填写固件地址和版本', 'warning');
+                    return;
+                }
+                
+                payload = {
+                    firmware_url: firmwareUrl,
+                    version: firmwareVersion
+                };
+                break;
+                
+            case 'restart':
+                payload = {
+                    force: document.getElementById('forceRestart').checked
+                };
+                break;
+        }
+        
+        const response = await apiCall(`/devices/${deviceId}/commands`, {
+            method: 'POST',
+            body: JSON.stringify({
+                type: currentCommandType,
+                payload: payload
+            })
+        });
+        
+        showAlert(`命令已发送：${response.command_id}`, 'success');
+        
+        // Close modals
+        bootstrap.Modal.getInstance(document.getElementById('commandModal')).hide();
+        const dangerModal = bootstrap.Modal.getInstance(document.getElementById('dangerModal'));
+        if (dangerModal) dangerModal.hide();
+        
+        // Refresh command history
+        setTimeout(() => loadCommands(), 1000);
+        
+    } catch (error) {
+        console.error('Failed to send command:', error);
+        showAlert('命令发送失败', 'danger');
+    }
+}
+
+function showDangerModal() {
+    const modal = document.getElementById('dangerModal');
+    const message = document.getElementById('dangerModalMessage');
+    
+    let messageText = '';
+    switch (currentCommandType) {
+        case 'restart':
+            messageText = '重启设备将中断当前所有操作和服务，您确定要继续吗？';
+            break;
+        case 'upgrade':
+            messageText = '固件升级过程中设备将暂停服务，升级失败可能导致设备无法正常工作，您确定要继续吗？';
+            break;
+        default:
+            messageText = '此操作可能影响设备正常运行，您确定要继续吗？';
+    }
+    
+    message.textContent = messageText;
+    
+    // Reset checkbox
+    document.getElementById('dangerConfirm').checked = false;
+    document.getElementById('dangerConfirmBtn').disabled = true;
+    
+    new bootstrap.Modal(modal).show();
+}
+
+function confirmDangerousAction() {
+    if (pendingDangerousAction) {
+        pendingDangerousAction();
+        pendingDangerousAction = null;
+    }
+}
+
+function showCommandResult(commandId, command) {
+    const commandData = typeof command === 'string' ? JSON.parse(command) : command;
+    
+    let resultHtml = `
+        <h6>命令详情</h6>
+        <table class="table table-sm">
+            <tr><td><strong>命令ID</strong></td><td>${commandData.command_id}</td></tr>
+            <tr><td><strong>类型</strong></td><td>${getCommandTypeText(commandData.type)}</td></tr>
+            <tr><td><strong>状态</strong></td><td>${getCommandStatusBadge(commandData.status)}</td></tr>
+            <tr><td><strong>发起时间</strong></td><td>${formatDateTime(commandData.issued_at)}</td></tr>
+            <tr><td><strong>尝试次数</strong></td><td>${commandData.attempts}/${commandData.max_attempts}</td></tr>
+        </table>
+    `;
+    
+    if (commandData.result_payload) {
+        resultHtml += `
+            <h6>执行结果</h6>
+            <pre class="bg-light p-2 rounded"><code>${JSON.stringify(commandData.result_payload, null, 2)}</code></pre>
+        `;
+    }
+    
+    const modalHtml = `
+        <div class="modal fade" id="commandResultModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">命令执行详情</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        ${resultHtml}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('commandResultModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add new modal
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    new bootstrap.Modal(document.getElementById('commandResultModal')).show();
+}
+
+async function retryCommand(commandId) {
+    try {
+        // In a real implementation, this would call a retry endpoint
+        showAlert(`重试命令 ${commandId}`, 'info');
+        
+        // Refresh command history after a delay
+        setTimeout(() => loadCommands(), 1000);
+        
+    } catch (error) {
+        console.error('Failed to retry command:', error);
+        showAlert('重试命令失败', 'danger');
+    }
+}
+
+async function refreshDeviceInfo() {
+    await loadDeviceInfo();
+}
+
+async function syncDeviceState() {
+    try {
+        const response = await apiCall(`/devices/${deviceId}/sync_state`, {
+            method: 'POST'
+        });
+        
+        showAlert('设备状态同步已启动', 'success');
+        
+        // Refresh info after a delay
+        setTimeout(() => {
+            loadDeviceInfo();
+            loadMaterials();
+        }, 2000);
+        
+    } catch (error) {
+        console.error('Failed to sync device state:', error);
+        showAlert('设备状态同步失败', 'danger');
+    }
+}
+
+async function reportMaterials() {
+    try {
+        // In a real implementation, this would trigger material reporting
+        showAlert('物料上报请求已发送', 'success');
+        
+        // Refresh materials after a delay
+        setTimeout(() => loadMaterials(), 2000);
+        
+    } catch (error) {
+        console.error('Failed to report materials:', error);
+        showAlert('物料上报失败', 'danger');
+    }
+}
+
+// Utility functions
+function getStatusBadgeClass(status) {
+    const classes = {
+        'online': 'bg-success',
+        'offline': 'bg-danger',
+        'fault': 'bg-warning text-dark',
+        'maintenance': 'bg-info',
+        'registered': 'bg-secondary'
+    };
+    return classes[status] || 'bg-secondary';
+}
+
+function getStatusText(status) {
+    const texts = {
+        'online': '在线',
+        'offline': '离线',
+        'fault': '故障',
+        'maintenance': '维护中',
+        'registered': '已注册'
+    };
+    return texts[status] || '未知';
+}
+
+function getCommandTypeText(type) {
+    const types = {
+        'sync': '同步数据',
+        'set_params': '设置参数',
+        'upgrade': '固件升级',
+        'restart': '重启设备',
+        'make_product': '制作产品',
+        'open_door': '开门'
+    };
+    return types[type] || type;
+}
+
+function getCommandStatusBadge(status) {
+    const badges = {
+        'pending': '<span class="badge bg-secondary">等待中</span>',
+        'queued': '<span class="badge bg-info">队列中</span>',
+        'sent': '<span class="badge bg-primary">已发送</span>',
+        'success': '<span class="badge bg-success">成功</span>',
+        'fail': '<span class="badge bg-danger">失败</span>',
+        'unsupported': '<span class="badge bg-warning text-dark">不支持</span>'
+    };
+    return badges[status] || '<span class="badge bg-secondary">未知</span>';
+}
+
+function getPaymentStatusBadge(status) {
+    const badges = {
+        'paid': '<span class="badge bg-success">已支付</span>',
+        'unpaid': '<span class="badge bg-warning text-dark">未支付</span>',
+        'refunded': '<span class="badge bg-info">已退款</span>',
+        'refund_failed': '<span class="badge bg-danger">退款失败</span>'
+    };
+    return badges[status] || '<span class="badge bg-secondary">未知</span>';
+}
+
+function getPaymentMethodText(method) {
+    const methods = {
+        'wechat': '微信支付',
+        'alipay': '支付宝',
+        'card': '银行卡',
+        'corp': '企业支付'
+    };
+    return methods[method] || method;
+}
+
+function formatDateTime(isoString) {
+    if (!isoString) return '--';
+    const date = new Date(isoString);
+    return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function formatLastSync(dateString) {
+    if (!dateString) return '未同步';
+    try {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMinutes = Math.floor((now - date) / (1000 * 60));
+        
+        if (diffMinutes < 1) return '刚刚';
+        if (diffMinutes < 60) return `${diffMinutes}分钟前`;
+        
+        const diffHours = Math.floor(diffMinutes / 60);
+        if (diffHours < 24) return `${diffHours}小时前`;
+        
+        return date.toLocaleString('zh-CN', {
+            month: 'numeric',
+            day: 'numeric'
+        });
+    } catch (e) {
+        return '未知';
+    }
+}
+</script>
+{% endblock %}

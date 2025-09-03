@@ -1,10 +1,23 @@
 """
-Simplified API endpoints for demonstration without external dependencies.
-This module implements core API functionality using only built-in Python libraries.
+Core API endpoints backed by the database (SQLAlchemy models).
+All responses are standardized via api_response().
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+from collections import defaultdict
 from flask import jsonify, request
+from sqlalchemy import func, and_, or_
+
+from app import db
 from app.api import bp
+from app.models.device import Device, DeviceStatus
+from app.models.merchant import Merchant
+from app.models.location import Location
+from app.models.device_bin import DeviceBin
+from app.models.material_dictionary import MaterialDictionary
+from app.models.order import Order, PaymentStatus
+from app.models.order_item import OrderItem
+from app.models.remote_command import RemoteCommand, CommandStatus, CommandType
+from app.models.alarm import Alarm, AlarmSeverity, AlarmStatus, AlarmType
 
 
 def api_response(data=None, error=None):
@@ -35,50 +48,102 @@ def health():
 def dashboard_summary():
     """Dashboard summary with KPIs."""
     try:
-        # Mock data for demonstration - in real implementation, this would query the database
-        from_date = request.args.get('from', (datetime.utcnow() - timedelta(days=7)).isoformat())
-        to_date = request.args.get('to', datetime.utcnow().isoformat())
+        # Parse date range
+        to_dt = request.args.get('to')
+        from_dt = request.args.get('from')
         merchant_id = request.args.get('merchant_id')
-        
+
+        now = datetime.utcnow()
+        to_dt = datetime.fromisoformat(to_dt) if to_dt else now
+        from_dt = datetime.fromisoformat(from_dt) if from_dt else (to_dt - timedelta(days=7))
+
+        device_q = Device.query
+        order_q = Order.query
+        alarm_q = Alarm.query
+        bin_q = DeviceBin.query
+
+        if merchant_id:
+            try:
+                mid = int(merchant_id)
+            except ValueError:
+                return api_response(error={
+                    'code': 'INVALID_PARAMETER',
+                    'message': 'merchant_id must be integer'
+                })
+            device_q = device_q.filter(Device.merchant_id == mid)
+            order_q = order_q.join(Device, Device.device_id == Order.device_id).filter(Device.merchant_id == mid)
+            alarm_q = alarm_q.join(Device, Device.device_id == Alarm.device_id).filter(Device.merchant_id == mid)
+            bin_q = bin_q.join(Device, Device.device_id == DeviceBin.device_id).filter(Device.merchant_id == mid)
+
+        device_total = device_q.count()
+        online_count = device_q.filter(Device.status == DeviceStatus.ONLINE.value).count()
+        online_rate = round((online_count / device_total) * 100, 1) if device_total else 0.0
+
+        # Sales today and week
+        start_of_today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        sales_today_q = order_q.filter(and_(Order.server_ts >= start_of_today, Order.server_ts <= now))
+        sales_today_amount = sales_today_q.with_entities(func.coalesce(func.sum(Order.total_price), 0.0)).scalar() or 0.0
+        sales_today_count = sales_today_q.count()
+
+        sales_week_q = order_q.filter(and_(Order.server_ts >= from_dt, Order.server_ts <= to_dt))
+        sales_week_amount = sales_week_q.with_entities(func.coalesce(func.sum(Order.total_price), 0.0)).scalar() or 0.0
+        sales_week_count = sales_week_q.count()
+
+        # Open alarms
+        alarms_open = alarm_q.filter(Alarm.status == AlarmStatus.OPEN.value).count()
+
+        # Low materials count (bins where remaining% <= threshold OR empty)
+        low_bins_count = bin_q.filter(
+            or_(
+                and_(DeviceBin.capacity.isnot(None), DeviceBin.capacity > 0, DeviceBin.remaining <= (DeviceBin.capacity * (DeviceBin.threshold_low_pct / 100.0))),
+                DeviceBin.remaining <= 0
+            )
+        ).count()
+
+        # Sales trend for last 7 days
+        days = [to_dt.date() - timedelta(days=i) for i in range(6, -1, -1)]
+        sales_by_day = {d: 0.0 for d in days}
+        trend_rows = (sales_week_q
+            .with_entities(func.date(Order.server_ts).label('d'), func.coalesce(func.sum(Order.total_price), 0.0))
+            .group_by(func.date(Order.server_ts)).all())
+        for d, amount in trend_rows:
+            if isinstance(d, date):
+                sales_by_day[d] = float(amount or 0.0)
+            else:
+                # Some DBs may return string; parse fallback
+                try:
+                    sales_by_day[datetime.fromisoformat(str(d)).date()] = float(amount or 0.0)
+                except Exception:
+                    pass
+
+        sales_trend = [{ 'date': d.isoformat(), 'amount': round(sales_by_day[d], 2) } for d in days]
+
+        # Online rate trend (no historical data table yet; reuse snapshot for now)
+        online_trend = [{ 'date': d.isoformat(), 'rate': online_rate } for d in days]
+
         summary_data = {
-            'device_total': 3,
-            'online_rate': 66.7,  # 2 out of 3 devices online
+            'device_total': device_total,
+            'online_rate': online_rate,
             'sales_today': {
-                'amount': 245.50,
+                'amount': round(sales_today_amount, 2),
                 'currency': 'CNY',
-                'orders_count': 12
+                'orders_count': sales_today_count
             },
             'sales_week': {
-                'amount': 1432.80,
-                'currency': 'CNY', 
-                'orders_count': 78
+                'amount': round(sales_week_amount, 2),
+                'currency': 'CNY',
+                'orders_count': sales_week_count
             },
-            'alarms_open': 1,
-            'materials_low': 2,
+            'alarms_open': alarms_open,
+            'materials_low': low_bins_count,
             'trends': {
-                'sales': [
-                    {'date': '2024-01-01', 'amount': 156.30},
-                    {'date': '2024-01-02', 'amount': 203.45},
-                    {'date': '2024-01-03', 'amount': 189.20},
-                    {'date': '2024-01-04', 'amount': 234.67},
-                    {'date': '2024-01-05', 'amount': 178.90},
-                    {'date': '2024-01-06', 'amount': 225.78},
-                    {'date': '2024-01-07', 'amount': 245.50}
-                ],
-                'online_rate': [
-                    {'date': '2024-01-01', 'rate': 100.0},
-                    {'date': '2024-01-02', 'rate': 66.7},
-                    {'date': '2024-01-03', 'rate': 66.7},
-                    {'date': '2024-01-04', 'rate': 100.0},
-                    {'date': '2024-01-05', 'rate': 66.7},
-                    {'date': '2024-01-06', 'rate': 66.7},
-                    {'date': '2024-01-07', 'rate': 66.7}
-                ]
+                'sales': sales_trend,
+                'online_rate': online_trend
             }
         }
-        
+
         return api_response(summary_data)
-        
+
     except Exception as e:
         return api_response(error={
             'code': 'DASHBOARD_ERROR',
@@ -94,107 +159,56 @@ def devices_list():
         # Parse query parameters
         page = int(request.args.get('page', 1))
         page_size = min(int(request.args.get('page_size', 20)), 100)
-        query = request.args.get('query', '')
+        q = request.args.get('query', '')
         merchant_id = request.args.get('merchant_id')
         model = request.args.get('model')
         status = request.args.get('status')
         address = request.args.get('address')
-        
-        # Mock device data - in real implementation, this would query Device model
-        all_devices = [
-            {
-                'device_id': 'CM001',
-                'alias': 'Downtown Coffee Machine',
-                'model': 'CM-2000',
-                'fw_version': '1.2.3',
-                'status': 'online',
-                'last_seen': '2024-01-01T12:30:00Z',
-                'ip': '192.168.1.100',
-                'wifi_ssid': 'CoffeeShop_WiFi',
-                'temperature': 22.5,
-                'merchant': {
-                    'id': 1,
-                    'name': 'StarBucks Coffee'
-                },
-                'location': {
-                    'id': 1,
-                    'name': 'Downtown Store',
-                    'address': '123 Main St'
-                },
-                'tags': {'location': 'indoor', 'priority': 'high'}
-            },
-            {
-                'device_id': 'CM002',
-                'alias': 'Mall Coffee Machine',
-                'model': 'CM-2000',
-                'fw_version': '1.2.2',
-                'status': 'offline',
-                'last_seen': '2024-01-01T10:30:00Z',
-                'ip': '192.168.1.101',
-                'wifi_ssid': 'Mall_Guest',
-                'temperature': None,
-                'merchant': {
-                    'id': 1,
-                    'name': 'StarBucks Coffee'
-                },
-                'location': {
-                    'id': 2,
-                    'name': 'Mall Store',
-                    'address': '456 Mall Ave'
-                },
-                'tags': {'location': 'mall'}
-            },
-            {
-                'device_id': 'CM003',
-                'alias': 'Local Coffee Machine',
-                'model': 'CM-1000',
-                'fw_version': '1.1.5',
-                'status': 'online',
-                'last_seen': '2024-01-01T12:25:00Z',
-                'ip': '192.168.2.50',
-                'wifi_ssid': 'Local_Network',
-                'temperature': 23.1,
-                'merchant': {
-                    'id': 2,
-                    'name': 'Local Coffee Shop'
-                },
-                'location': {
-                    'id': 3,
-                    'name': 'Local Store',
-                    'address': '789 Local St'
-                },
-                'tags': {'location': 'street'}
-            }
-        ]
-        
-        # Apply filters
-        filtered_devices = all_devices
-        
-        if query:
-            filtered_devices = [d for d in filtered_devices 
-                              if query.lower() in d['alias'].lower() or query.lower() in d['device_id'].lower()]
-        
+
+        query = Device.query.outerjoin(Merchant, Merchant.id == Device.merchant_id).outerjoin(Location, Location.id == Device.location_id)
+
+        if q:
+            like = f"%{q}%"
+            query = query.filter(or_(Device.alias.ilike(like), Device.device_id.ilike(like)))
+
         if merchant_id:
-            filtered_devices = [d for d in filtered_devices if d['merchant']['id'] == int(merchant_id)]
-        
+            try:
+                mid = int(merchant_id)
+            except ValueError:
+                return api_response(error={'code': 'INVALID_PARAMETER', 'message': 'merchant_id must be integer'})
+            query = query.filter(Device.merchant_id == mid)
+
         if model:
-            filtered_devices = [d for d in filtered_devices if d['model'] == model]
-        
+            query = query.filter(Device.model == model)
+
         if status:
-            filtered_devices = [d for d in filtered_devices if d['status'] == status]
-        
+            query = query.filter(Device.status == status)
+
         if address:
-            filtered_devices = [d for d in filtered_devices 
-                              if address.lower() in d['location']['address'].lower()]
-        
-        # Apply pagination
-        total = len(filtered_devices)
-        start_idx = (page - 1) * page_size
-        end_idx = start_idx + page_size
-        paginated_devices = filtered_devices[start_idx:end_idx]
-        
+            like_addr = f"%{address}%"
+            query = query.filter(Location.address.ilike(like_addr))
+
+        total = query.count()
+        items = query.order_by(Device.device_id).offset((page - 1) * page_size).limit(page_size).all()
+
+        def device_to_dict(d: Device):
+            return {
+                'device_id': d.device_id,
+                'alias': d.alias,
+                'model': d.model,
+                'fw_version': d.fw_version,
+                'status': d.status,
+                'last_seen': d.last_seen.isoformat() if d.last_seen else None,
+                'ip': d.ip,
+                'wifi_ssid': d.wifi_ssid,
+                'temperature': d.temperature,
+                'merchant': {'id': d.merchant.id, 'name': d.merchant.name} if d.merchant else None,
+                'location': {'id': d.location.id, 'name': d.location.name, 'address': d.location.address} if d.location else None,
+                'tags': d.tags or {}
+            }
+
         return api_response({
-            'devices': paginated_devices,
+            'devices': [device_to_dict(d) for d in items],
             'pagination': {
                 'page': page,
                 'page_size': page_size,
@@ -202,7 +216,7 @@ def devices_list():
                 'pages': (total + page_size - 1) // page_size
             },
             'filters': {
-                'query': query,
+                'query': q,
                 'merchant_id': merchant_id,
                 'model': model,
                 'status': status,
@@ -227,30 +241,45 @@ def devices_list():
 def device_summary(device_id):
     """Get device summary information."""
     try:
-        # Mock device summary data
-        if device_id not in ['CM001', 'CM002', 'CM003']:
+        d = Device.query.get(device_id)
+        if not d:
             return api_response(error={
                 'code': 'DEVICE_NOT_FOUND',
                 'message': f'Device {device_id} not found',
                 'status_code': 404
             })
-        
+
+        start_of_today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        orders_today = Order.query.filter(and_(Order.device_id == device_id, Order.server_ts >= start_of_today)).all()
+        revenue_today = sum(o.total_price for o in orders_today)
+
+        bins = DeviceBin.query.filter(DeviceBin.device_id == device_id).all()
+        total_bins = len(bins)
+        low_bins = 0
+        empty_bins = 0
+        for b in bins:
+            pct = (b.remaining / b.capacity * 100.0) if b.capacity else 0.0
+            if (b.remaining or 0) <= 0:
+                empty_bins += 1
+            elif b.threshold_low_pct is not None and pct <= b.threshold_low_pct:
+                low_bins += 1
+
         device_data = {
-            'device_id': device_id,
-            'alias': f'{device_id} Coffee Machine',
-            'status': 'online' if device_id != 'CM002' else 'offline',
-            'uptime_hours': 156.5 if device_id != 'CM002' else 0,
-            'total_orders_today': 12 if device_id == 'CM001' else 8 if device_id == 'CM003' else 0,
-            'revenue_today': 245.50 if device_id == 'CM001' else 178.30 if device_id == 'CM003' else 0,
+            'device_id': d.device_id,
+            'alias': d.alias,
+            'status': d.status,
+            'uptime_hours': None,  # Not tracked yet
+            'total_orders_today': len(orders_today),
+            'revenue_today': round(revenue_today, 2),
             'materials_status': {
-                'total_bins': 4 if device_id != 'CM003' else 3,
-                'low_bins': 1 if device_id == 'CM001' else 0,
-                'empty_bins': 1 if device_id == 'CM002' else 0
+                'total_bins': total_bins,
+                'low_bins': low_bins,
+                'empty_bins': empty_bins
             },
-            'last_maintenance': '2023-12-15T09:00:00Z',
-            'next_maintenance': '2024-02-15T09:00:00Z'
+            'last_maintenance': None,
+            'next_maintenance': None
         }
-        
+
         return api_response(device_data)
         
     except Exception as e:
@@ -274,97 +303,59 @@ def orders_list():
         merchant_id = request.args.get('merchant_id')
         payment_method = request.args.get('payment_method')
         exception = request.args.get('exception')
-        
-        # Mock orders data
-        all_orders = [
-            {
-                'order_id': 'ORDER_001',
-                'device_id': 'CM001',
-                'device_ts': '2024-01-01T09:15:00Z',
-                'server_ts': '2024-01-01T09:15:01Z',
-                'items_count': 2,
-                'total_price': 25.50,
-                'currency': 'CNY',
-                'payment_method': 'wechat',
-                'payment_status': 'paid',
-                'is_exception': False,
-                'address': '123 Main St',
+
+        query = Order.query
+        if device_id:
+            query = query.filter(Order.device_id == device_id)
+
+        if merchant_id:
+            try:
+                mid = int(merchant_id)
+            except ValueError:
+                return api_response(error={'code': 'INVALID_PARAMETER', 'message': 'merchant_id must be integer'})
+            query = query.join(Device, Device.device_id == Order.device_id).filter(Device.merchant_id == mid)
+
+        if payment_method:
+            query = query.filter(Order.payment_method == payment_method)
+
+        if exception is not None:
+            is_exception = str(exception).lower() == 'true'
+            query = query.filter(Order.is_exception == is_exception)
+
+        if from_date:
+            fd = datetime.fromisoformat(from_date)
+            query = query.filter(Order.server_ts >= fd)
+        if to_date:
+            td = datetime.fromisoformat(to_date)
+            query = query.filter(Order.server_ts <= td)
+
+        total = query.count()
+        rows = query.order_by(Order.server_ts.desc()).offset((page - 1) * page_size).limit(page_size).all()
+
+        def order_to_dict(o: Order):
+            return {
+                'order_id': o.order_id,
+                'device_id': o.device_id,
+                'device_ts': o.device_ts.isoformat() if o.device_ts else None,
+                'server_ts': o.server_ts.isoformat() if o.server_ts else None,
+                'items_count': o.items_count,
+                'total_price': o.total_price,
+                'currency': o.currency,
+                'payment_method': o.payment_method,
+                'payment_status': o.payment_status,
+                'is_exception': o.is_exception,
+                'address': o.address,
                 'items': [
-                    {'name': 'Latte', 'qty': 1, 'unit_price': 18.50},
-                    {'name': 'Cappuccino', 'qty': 1, 'unit_price': 7.00}
-                ]
-            },
-            {
-                'order_id': 'ORDER_002',
-                'device_id': 'CM001',
-                'device_ts': '2024-01-01T10:30:00Z',
-                'server_ts': '2024-01-01T10:30:01Z',
-                'items_count': 1,
-                'total_price': 18.00,
-                'currency': 'CNY',
-                'payment_method': 'alipay',
-                'payment_status': 'paid',
-                'is_exception': False,
-                'address': '123 Main St',
-                'items': [
-                    {'name': 'Americano', 'qty': 1, 'unit_price': 18.00}
-                ]
-            },
-            {
-                'order_id': 'ORDER_006',
-                'device_id': 'CM002',
-                'device_ts': '2024-01-01T11:00:00Z',
-                'server_ts': '2024-01-01T11:00:01Z',
-                'items_count': 1,
-                'total_price': 20.00,
-                'currency': 'CNY',
-                'payment_method': 'wechat',
-                'payment_status': 'refunded',
-                'is_exception': True,
-                'address': '456 Mall Ave',
-                'items': [
-                    {'name': 'Latte', 'qty': 1, 'unit_price': 20.00}
-                ]
-            },
-            {
-                'order_id': 'ORDER_007',
-                'device_id': 'CM001',
-                'device_ts': '2024-01-01T13:30:00Z',
-                'server_ts': '2024-01-01T13:30:01Z',
-                'items_count': 2,
-                'total_price': 35.00,
-                'currency': 'CNY',
-                'payment_method': 'card',
-                'payment_status': 'refund_failed',
-                'is_exception': True,
-                'address': '123 Main St',
-                'items': [
-                    {'name': 'Mocha', 'qty': 2, 'unit_price': 17.50}
+                    {
+                        'name': it.name,
+                        'qty': it.qty,
+                        'unit_price': it.unit_price
+                    } for it in o.items.order_by(OrderItem.id).all()
                 ]
             }
-        ]
-        
-        # Apply filters
-        filtered_orders = all_orders
-        
-        if device_id:
-            filtered_orders = [o for o in filtered_orders if o['device_id'] == device_id]
-        
-        if payment_method:
-            filtered_orders = [o for o in filtered_orders if o['payment_method'] == payment_method]
-        
-        if exception is not None:
-            is_exception = exception.lower() == 'true'
-            filtered_orders = [o for o in filtered_orders if o['is_exception'] == is_exception]
-        
-        # Apply pagination
-        total = len(filtered_orders)
-        start_idx = (page - 1) * page_size
-        end_idx = start_idx + page_size
-        paginated_orders = filtered_orders[start_idx:end_idx]
-        
+
         return api_response({
-            'orders': paginated_orders,
+            'orders': [order_to_dict(o) for o in rows],
             'pagination': {
                 'page': page,
                 'page_size': page_size,
@@ -398,54 +389,19 @@ def orders_list():
 def materials_list():
     """List material dictionary entries."""
     try:
-        # Mock materials data
-        materials = [
-            {
-                'id': 1,
-                'code': 'COFFEE_BEAN_A',
-                'name': 'Arabica Coffee Beans',
-                'type': 'bean',
-                'unit': 'g',
-                'density': 0.6,
-                'enabled': True,
-                'created_at': '2023-12-01T00:00:00Z',
-                'updated_at': '2023-12-01T00:00:00Z'
-            },
-            {
-                'id': 2,
-                'code': 'COFFEE_BEAN_R',
-                'name': 'Robusta Coffee Beans',
-                'type': 'bean',
-                'unit': 'g',
-                'density': 0.65,
-                'enabled': True,
-                'created_at': '2023-12-01T00:00:00Z',
-                'updated_at': '2023-12-01T00:00:00Z'
-            },
-            {
-                'id': 3,
-                'code': 'MILK_POWDER',
-                'name': 'Milk Powder',
-                'type': 'powder',
-                'unit': 'g',
-                'density': 0.5,
-                'enabled': True,
-                'created_at': '2023-12-01T00:00:00Z',
-                'updated_at': '2023-12-01T00:00:00Z'
-            },
-            {
-                'id': 4,
-                'code': 'SUGAR',
-                'name': 'Sugar',
-                'type': 'powder',
-                'unit': 'g',
-                'density': 0.8,
-                'enabled': True,
-                'created_at': '2023-12-01T00:00:00Z',
-                'updated_at': '2023-12-01T00:00:00Z'
-            }
-        ]
-        
+        rows = MaterialDictionary.query.order_by(MaterialDictionary.code).all()
+        materials = [{
+            'id': m.id,
+            'code': m.code,
+            'name': m.name,
+            'type': m.type,
+            'unit': m.unit,
+            'density': m.density,
+            'enabled': m.enabled,
+            'created_at': m.created_at.isoformat() if getattr(m, 'created_at', None) else None,
+            'updated_at': m.updated_at.isoformat() if getattr(m, 'updated_at', None) else None,
+        } for m in rows]
+
         return api_response({
             'materials': materials,
             'total': len(materials)
@@ -479,14 +435,30 @@ def device_register():
                     'message': f'Required field {field} is missing'
                 })
         
-        # Mock successful registration
+        # Create or update device in DB
+        d = Device.query.get(data['device_id'])
+        if not d:
+            d = Device(device_id=data['device_id'], merchant_id=int(data['merchant_id']))
+            db.session.add(d)
+        d.model = data.get('model')
+        d.alias = data.get('alias')
+        d.fw_version = data.get('fw_version')
+        d.status = data.get('status', DeviceStatus.REGISTERED.value)
+        d.last_seen = datetime.utcnow()
+        d.ip = data.get('ip')
+        d.wifi_ssid = data.get('wifi_ssid')
+        d.temperature = data.get('temperature')
+        d.location_id = data.get('location_id')
+        d.tags = data.get('tags')
+        d.extra = data.get('extra')
+        db.session.commit()
+
         response_data = {
-            'device_id': data['device_id'],
-            'status': 'registered',
-            'registered_at': datetime.utcnow().isoformat(),
-            'token': f"device_token_{data['device_id']}"
+            'device_id': d.device_id,
+            'status': d.status,
+            'registered_at': d.last_seen.isoformat()
         }
-        
+
         return api_response(response_data)
         
     except Exception as e:
@@ -507,20 +479,314 @@ def device_status_update(device_id):
                 'code': 'INVALID_REQUEST',
                 'message': 'JSON payload required'
             })
-        
-        # Mock successful status update
+
+        d = Device.query.get(device_id)
+        if not d:
+            return api_response(error={
+                'code': 'DEVICE_NOT_FOUND',
+                'message': f'Device {device_id} not found',
+                'status_code': 404
+            })
+
+        d.status = data.get('status', d.status)
+        d.last_seen = datetime.utcnow()
+        d.temperature = data.get('temperature', d.temperature)
+        db.session.commit()
+
         response_data = {
-            'device_id': device_id,
-            'status': data.get('status', 'online'),
-            'received_at': datetime.utcnow().isoformat(),
+            'device_id': d.device_id,
+            'status': d.status,
+            'received_at': d.last_seen.isoformat(),
             'next_sync': (datetime.utcnow() + timedelta(minutes=5)).isoformat()
         }
-        
+
         return api_response(response_data)
         
     except Exception as e:
         return api_response(error={
             'code': 'STATUS_UPDATE_ERROR',
             'message': f'Status update failed: {str(e)}',
+            'status_code': 500
+        })
+
+
+@bp.route('/devices/<device_id>/materials')
+def device_materials(device_id):
+    """Get device materials/bins status."""
+    try:
+        d = Device.query.get(device_id)
+        if not d:
+            return api_response(error={
+                'code': 'DEVICE_NOT_FOUND',
+                'message': f'Device {device_id} not found',
+                'status_code': 404
+            })
+
+        rows = (DeviceBin.query
+            .filter(DeviceBin.device_id == device_id)
+            .outerjoin(MaterialDictionary, MaterialDictionary.code == DeviceBin.material_code)
+            .order_by(DeviceBin.bin_index)
+            .all())
+
+        bins = []
+        last_sync = None
+        normal = low = empty = 0
+        for b in rows:
+            pct = (b.remaining / b.capacity * 100.0) if (b.capacity and b.capacity > 0) else 0.0
+            status = 'normal'
+            if (b.remaining or 0) <= 0:
+                status = 'empty'
+                empty += 1
+            elif b.threshold_low_pct is not None and pct <= b.threshold_low_pct:
+                status = 'low'
+                low += 1
+            else:
+                normal += 1
+            item_last_sync = b.last_sync.isoformat() if b.last_sync else None
+            if b.last_sync and (last_sync is None or b.last_sync > datetime.fromisoformat(last_sync)):
+                last_sync = b.last_sync.isoformat()
+            bins.append({
+                'bin_index': b.bin_index,
+                'material_code': b.material_code,
+                'material_name': b.material.name if b.material else None,
+                'remaining': b.remaining,
+                'capacity': b.capacity,
+                'unit': b.unit,
+                'threshold_low_pct': b.threshold_low_pct,
+                'last_sync': item_last_sync,
+                'status': status
+            })
+
+        return api_response({
+            'device_id': device_id,
+            'bins': bins,
+            'summary': {
+                'total_bins': len(bins),
+                'normal_bins': normal,
+                'low_bins': low,
+                'empty_bins': empty,
+                'last_sync': last_sync
+            }
+        })
+        
+    except Exception as e:
+        return api_response(error={
+            'code': 'DEVICE_MATERIALS_ERROR',
+            'message': f'Failed to fetch device materials: {str(e)}',
+            'status_code': 500
+        })
+
+
+@bp.route('/devices/<device_id>/orders')
+def device_orders(device_id):
+    """Get recent orders for a specific device."""
+    try:
+        limit = min(int(request.args.get('limit', 10)), 50)
+
+        d = Device.query.get(device_id)
+        if not d:
+            return api_response(error={
+                'code': 'DEVICE_NOT_FOUND',
+                'message': f'Device {device_id} not found',
+                'status_code': 404
+            })
+
+        rows = (Order.query.filter(Order.device_id == device_id)
+                .order_by(Order.server_ts.desc()).limit(limit).all())
+
+        def order_to_dict(o: Order):
+            return {
+                'order_id': o.order_id,
+                'device_id': o.device_id,
+                'device_ts': o.device_ts.isoformat() if o.device_ts else None,
+                'server_ts': o.server_ts.isoformat() if o.server_ts else None,
+                'items_count': o.items_count,
+                'total_price': o.total_price,
+                'currency': o.currency,
+                'payment_method': o.payment_method,
+                'payment_status': o.payment_status,
+                'is_exception': o.is_exception,
+                'items': [
+                    {
+                        'name': it.name,
+                        'qty': it.qty,
+                        'unit_price': it.unit_price
+                    } for it in o.items.order_by(OrderItem.id).all()
+                ]
+            }
+
+        return api_response({
+            'device_id': device_id,
+            'orders': [order_to_dict(o) for o in rows],
+            'total_count': len(rows)
+        })
+        
+    except ValueError as e:
+        return api_response(error={
+            'code': 'INVALID_PARAMETER',
+            'message': f'Invalid parameter value: {str(e)}'
+        })
+    except Exception as e:
+        return api_response(error={
+            'code': 'DEVICE_ORDERS_ERROR',
+            'message': f'Failed to fetch device orders: {str(e)}',
+            'status_code': 500
+        })
+
+
+@bp.route('/devices/<device_id>/commands')
+def device_commands(device_id):
+    """Get command history for a specific device."""
+    try:
+        limit = min(int(request.args.get('limit', 20)), 50)
+
+        d = Device.query.get(device_id)
+        if not d:
+            return api_response(error={
+                'code': 'DEVICE_NOT_FOUND',
+                'message': f'Device {device_id} not found',
+                'status_code': 404
+            })
+
+        rows = (RemoteCommand.query.filter(RemoteCommand.device_id == device_id)
+                .order_by(RemoteCommand.issued_at.desc()).limit(limit).all())
+
+        def cmd_to_dict(c: RemoteCommand):
+            return {
+                'command_id': c.command_id,
+                'device_id': c.device_id,
+                'type': c.type,
+                'status': c.status,
+                'issued_at': c.issued_at.isoformat() if c.issued_at else None,
+                'sent_at': c.sent_at.isoformat() if c.sent_at else None,
+                'result_at': c.result_at.isoformat() if c.result_at else None,
+                'payload': c.payload,
+                'result_payload': c.result_payload,
+                'attempts': c.attempts,
+                'max_attempts': c.max_attempts
+            }
+
+        return api_response({
+            'device_id': device_id,
+            'commands': [cmd_to_dict(c) for c in rows],
+            'total_count': len(rows)
+        })
+        
+    except ValueError as e:
+        return api_response(error={
+            'code': 'INVALID_PARAMETER',
+            'message': f'Invalid parameter value: {str(e)}'
+        })
+    except Exception as e:
+        return api_response(error={
+            'code': 'DEVICE_COMMANDS_ERROR',
+            'message': f'Failed to fetch device commands: {str(e)}',
+            'status_code': 500
+        })
+
+
+@bp.route('/devices/<device_id>/commands', methods=['POST'])
+def device_send_command(device_id):
+    """Send a command to a specific device."""
+    try:
+        data = request.get_json()
+        if not data:
+            return api_response(error={
+                'code': 'INVALID_REQUEST',
+                'message': 'JSON payload required'
+            })
+        
+        command_type = data.get('type')
+        payload = data.get('payload', {})
+        
+        if not command_type:
+            return api_response(error={
+                'code': 'INVALID_REQUEST',
+                'message': 'Command type is required'
+            })
+
+        d = Device.query.get(device_id)
+        if not d:
+            return api_response(error={
+                'code': 'DEVICE_NOT_FOUND',
+                'message': f'Device {device_id} not found',
+                'status_code': 404
+            })
+
+        # Create command record
+        command_id = f'CMD_{datetime.utcnow().strftime("%Y%m%d%H%M%S%f")}'
+        cmd = RemoteCommand(
+            command_id=command_id,
+            device_id=device_id,
+            type=command_type,
+            payload=payload,
+            status=CommandStatus.PENDING.value,
+            issued_at=datetime.utcnow(),
+            attempts=0,
+            max_attempts=3
+        )
+        db.session.add(cmd)
+        db.session.commit()
+
+        response_data = {
+            'command_id': cmd.command_id,
+            'device_id': cmd.device_id,
+            'type': cmd.type,
+            'status': cmd.status,
+            'issued_at': cmd.issued_at.isoformat(),
+            'payload': cmd.payload,
+            'attempts': cmd.attempts,
+            'max_attempts': cmd.max_attempts
+        }
+
+        return api_response(response_data)
+        
+    except Exception as e:
+        return api_response(error={
+            'code': 'SEND_COMMAND_ERROR',
+            'message': f'Failed to send command: {str(e)}',
+            'status_code': 500
+        })
+
+
+@bp.route('/devices/<device_id>/sync_state', methods=['POST'])
+def device_sync_state(device_id):
+    """Sync device state (materials, status, etc.)."""
+    try:
+        d = Device.query.get(device_id)
+        if not d:
+            return api_response(error={
+                'code': 'DEVICE_NOT_FOUND',
+                'message': f'Device {device_id} not found',
+                'status_code': 404
+            })
+
+        # Optionally enqueue a sync command in DB
+        cmd_id = f'SYNC_{datetime.utcnow().strftime("%Y%m%d%H%M%S%f")}'
+        cmd = RemoteCommand(
+            command_id=cmd_id,
+            device_id=device_id,
+            type=CommandType.SYNC.value,
+            payload={'actions': ['sync_materials', 'sync_status', 'sync_commands']},
+            status=CommandStatus.PENDING.value,
+            issued_at=datetime.utcnow()
+        )
+        db.session.add(cmd)
+        db.session.commit()
+
+        response_data = {
+            'device_id': device_id,
+            'sync_started_at': cmd.issued_at.isoformat(),
+            'estimated_completion': (datetime.utcnow() + timedelta(seconds=30)).isoformat(),
+            'operations': ['sync_materials', 'sync_status', 'sync_commands'],
+            'command_id': cmd.command_id
+        }
+
+        return api_response(response_data)
+        
+    except Exception as e:
+        return api_response(error={
+            'code': 'SYNC_STATE_ERROR',
+            'message': f'Failed to sync device state: {str(e)}',
             'status_code': 500
         })

@@ -81,9 +81,10 @@ def create_user(email, password, name, role):
 
 
 @cli.command(name='seed-demo')
+@click.option('--reset', is_flag=True, help='Drop & recreate tables before seeding')
 @with_appcontext
-def seed_demo():
-    """Create demo/seed data."""
+def seed_demo(reset):
+    """Create demo/seed data (idempotent). Use --reset to recreate tables."""
     from datetime import datetime, timedelta
     import uuid
     from app.models.merchant import Merchant, MerchantStatus
@@ -95,91 +96,127 @@ def seed_demo():
     from app.models.order_item import OrderItem
     from app.models.recipe import Recipe
     from app.models.user import User, UserRole
+    from app.models.alarm import Alarm, AlarmType, AlarmSeverity, AlarmStatus
+    from app.models.remote_command import RemoteCommand, CommandType, CommandStatus
     
-    click.echo('Creating seed data...')
+    # Optional reset (drop & create all tables)
+    if reset:
+        click.echo('Resetting database (drop & create tables)...')
+        import app.models  # ensure models imported
+        db.drop_all()
+        db.create_all()
+
+    click.echo('Creating seed data (idempotent)...')
     
     # Create merchants
-    merchant1 = Merchant(name='StarBucks Coffee', contact='contact@starbucks.com', status=MerchantStatus.ACTIVE.value)
-    merchant2 = Merchant(name='Local Coffee Shop', contact='info@localcoffee.com', status=MerchantStatus.ACTIVE.value)
-    db.session.add_all([merchant1, merchant2])
-    db.session.flush()
+    # Merchants (upsert by name)
+    merchant1 = Merchant.query.filter_by(name='StarBucks Coffee').first()
+    if not merchant1:
+        merchant1 = Merchant(name='StarBucks Coffee', contact='contact@starbucks.com', status=MerchantStatus.ACTIVE.value)
+        db.session.add(merchant1)
+        db.session.flush()
+    else:
+        merchant1.contact = 'contact@starbucks.com'
+        merchant1.status = MerchantStatus.ACTIVE.value
+
+    merchant2 = Merchant.query.filter_by(name='Local Coffee Shop').first()
+    if not merchant2:
+        merchant2 = Merchant(name='Local Coffee Shop', contact='info@localcoffee.com', status=MerchantStatus.ACTIVE.value)
+        db.session.add(merchant2)
+        db.session.flush()
+    else:
+        merchant2.contact = 'info@localcoffee.com'
+        merchant2.status = MerchantStatus.ACTIVE.value
     
     # Create locations
-    location1 = Location(merchant_id=merchant1.id, name='Downtown Store', address='123 Main St', lat=39.9042, lng=116.4074)
-    location2 = Location(merchant_id=merchant1.id, name='Mall Store', address='456 Mall Ave', lat=39.9100, lng=116.4200)
-    location3 = Location(merchant_id=merchant2.id, name='Local Store', address='789 Local St', lat=39.8950, lng=116.4100)
-    db.session.add_all([location1, location2, location3])
-    db.session.flush()
+    # Locations (upsert by merchant + name)
+    def get_or_create_location(merchant_id, name, address, lat, lng):
+        loc = Location.query.filter_by(merchant_id=merchant_id, name=name).first()
+        if not loc:
+            loc = Location(merchant_id=merchant_id, name=name, address=address, lat=lat, lng=lng)
+            db.session.add(loc)
+            db.session.flush()
+        else:
+            loc.address = address
+            loc.lat = lat
+            loc.lng = lng
+        return loc
+
+    location1 = get_or_create_location(merchant1.id, 'Downtown Store', '123 Main St', 39.9042, 116.4074)
+    location2 = get_or_create_location(merchant1.id, 'Mall Store', '456 Mall Ave', 39.9100, 116.4200)
+    location3 = get_or_create_location(merchant2.id, 'Local Store', '789 Local St', 39.8950, 116.4100)
     
     # Create devices
-    device1 = Device(
-        device_id='CM001',
-        alias='Downtown Coffee Machine',
-        model='CM-2000',
-        fw_version='1.2.3',
-        status=DeviceStatus.ONLINE.value,
-        last_seen=datetime.utcnow(),
-        merchant_id=merchant1.id,
-        location_id=location1.id,
-        tags={'location': 'indoor', 'priority': 'high'},
-        extra={}
+    # Devices (upsert by device_id)
+    def upsert_device(device_id, alias, model, fw_version, status, last_seen, merchant_id, location_id, tags, extra):
+        d = Device.query.get(device_id)
+        if not d:
+            d = Device(device_id=device_id, merchant_id=merchant_id)
+            db.session.add(d)
+        d.alias = alias
+        d.model = model
+        d.fw_version = fw_version
+        d.status = status
+        d.last_seen = last_seen
+        d.location_id = location_id
+        d.tags = tags
+        d.extra = extra
+        db.session.flush()
+        return d
+
+    device1 = upsert_device(
+        'CM001', 'Downtown Coffee Machine', 'CM-2000', '1.2.3',
+        DeviceStatus.ONLINE.value, datetime.utcnow(), merchant1.id, location1.id,
+        {'location': 'indoor', 'priority': 'high'}, {}
+    )
+    device2 = upsert_device(
+        'CM002', 'Mall Coffee Machine', 'CM-2000', '1.2.2',
+        DeviceStatus.OFFLINE.value, datetime.utcnow() - timedelta(hours=2), merchant1.id, location2.id,
+        {'location': 'mall'}, {}
+    )
+    device3 = upsert_device(
+        'CM003', 'Local Coffee Machine', 'CM-1000', '1.1.5',
+        DeviceStatus.ONLINE.value, datetime.utcnow() - timedelta(minutes=10), merchant2.id, location3.id,
+        {'location': 'street'}, {}
     )
     
-    device2 = Device(
-        device_id='CM002',
-        alias='Mall Coffee Machine',
-        model='CM-2000',
-        fw_version='1.2.2',
-        status=DeviceStatus.OFFLINE.value,
-        last_seen=datetime.utcnow() - timedelta(hours=2),
-        merchant_id=merchant1.id,
-        location_id=location2.id,
-        tags={'location': 'mall'},
-        extra={}
-    )
-    
-    device3 = Device(
-        device_id='CM003',
-        alias='Local Coffee Machine',
-        model='CM-1000',
-        fw_version='1.1.5',
-        status=DeviceStatus.ONLINE.value,
-        last_seen=datetime.utcnow() - timedelta(minutes=10),
-        merchant_id=merchant2.id,
-        location_id=location3.id,
-        tags={'location': 'street'},
-        extra={}
-    )
-    
-    db.session.add_all([device1, device2, device3])
-    db.session.flush()
-    
-    # Create material dictionary
-    materials = [
-        MaterialDictionary(code='COFFEE_BEAN_A', name='Arabica Coffee Beans', type='bean', unit='g', density=0.6, enabled=True),
-        MaterialDictionary(code='COFFEE_BEAN_R', name='Robusta Coffee Beans', type='bean', unit='g', density=0.65, enabled=True),
-        MaterialDictionary(code='MILK_POWDER', name='Milk Powder', type='powder', unit='g', density=0.5, enabled=True),
-        MaterialDictionary(code='SUGAR', name='Sugar', type='powder', unit='g', density=0.8, enabled=True),
-        MaterialDictionary(code='CREAM', name='Cream Powder', type='powder', unit='g', density=0.4, enabled=True),
-        MaterialDictionary(code='COCOA', name='Cocoa Powder', type='powder', unit='g', density=0.45, enabled=True),
-        MaterialDictionary(code='VANILLA', name='Vanilla Syrup', type='liquid', unit='ml', density=1.1, enabled=True),
-        MaterialDictionary(code='CARAMEL', name='Caramel Syrup', type='liquid', unit='ml', density=1.3, enabled=True),
-        MaterialDictionary(code='WATER', name='Filtered Water', type='liquid', unit='ml', density=1.0, enabled=True),
-        MaterialDictionary(code='CUP_SMALL', name='Small Paper Cup', type='container', unit='pcs', density=0.1, enabled=True),
+    # Material dictionary (upsert by code)
+    def upsert_material(code, name, type_, unit, density, enabled=True):
+        m = MaterialDictionary.query.filter_by(code=code).first()
+        if not m:
+            m = MaterialDictionary(code=code, name=name)
+            db.session.add(m)
+        m.name = name
+        m.type = type_
+        m.unit = unit
+        m.density = density
+        m.enabled = enabled
+        return m
+
+    _ = [
+        upsert_material('COFFEE_BEAN_A', 'Arabica Coffee Beans', 'bean', 'g', 0.6, True),
+        upsert_material('COFFEE_BEAN_R', 'Robusta Coffee Beans', 'bean', 'g', 0.65, True),
+        upsert_material('MILK_POWDER', 'Milk Powder', 'powder', 'g', 0.5, True),
+        upsert_material('SUGAR', 'Sugar', 'powder', 'g', 0.8, True),
+        upsert_material('CREAM', 'Cream Powder', 'powder', 'g', 0.4, True),
+        upsert_material('COCOA', 'Cocoa Powder', 'powder', 'g', 0.45, True),
+        upsert_material('VANILLA', 'Vanilla Syrup', 'liquid', 'ml', 1.1, True),
+        upsert_material('CARAMEL', 'Caramel Syrup', 'liquid', 'ml', 1.3, True),
+        upsert_material('WATER', 'Filtered Water', 'liquid', 'ml', 1.0, True),
+        upsert_material('CUP_SMALL', 'Small Paper Cup', 'container', 'pcs', 0.1, True),
     ]
-    db.session.add_all(materials)
     db.session.flush()
     
-    # Create device bins
+    # Create device bins (include low & empty scenarios)
     bins_data = [
         # Device 1 bins
         (device1.device_id, 1, 'COFFEE_BEAN_A', 800, 1000, 'g', 15),
-        (device1.device_id, 2, 'MILK_POWDER', 300, 500, 'g', 20),  # Low
+        (device1.device_id, 2, 'MILK_POWDER', 80, 500, 'g', 20),  # Low
         (device1.device_id, 3, 'SUGAR', 400, 800, 'g', 25),
         (device1.device_id, 4, 'WATER', 2000, 3000, 'ml', 10),
         
         # Device 2 bins
-        (device2.device_id, 1, 'COFFEE_BEAN_R', 600, 1000, 'g', 15),
+        (device2.device_id, 1, 'COFFEE_BEAN_R', 0, 1000, 'g', 15),  # Empty
         (device2.device_id, 2, 'CREAM', 150, 500, 'g', 20),
         (device2.device_id, 3, 'COCOA', 80, 400, 'g', 20),  # Low
         
@@ -190,17 +227,16 @@ def seed_demo():
     ]
     
     for device_id, bin_idx, material_code, remaining, capacity, unit, threshold in bins_data:
-        bin_obj = DeviceBin(
-            device_id=device_id,
-            bin_index=bin_idx,
-            material_code=material_code,
-            remaining=remaining,
-            capacity=capacity,
-            unit=unit,
-            threshold_low_pct=threshold,
-            last_sync=datetime.utcnow() - timedelta(minutes=30)
-        )
-        db.session.add(bin_obj)
+        bin_obj = DeviceBin.query.filter_by(device_id=device_id, bin_index=bin_idx).first()
+        if not bin_obj:
+            bin_obj = DeviceBin(device_id=device_id, bin_index=bin_idx)
+            db.session.add(bin_obj)
+        bin_obj.material_code = material_code
+        bin_obj.remaining = remaining
+        bin_obj.capacity = capacity
+        bin_obj.unit = unit
+        bin_obj.threshold_low_pct = threshold
+        bin_obj.last_sync = datetime.utcnow() - timedelta(minutes=30)
     
     db.session.flush()
     
@@ -220,22 +256,23 @@ def seed_demo():
     ]
     
     for order_id, device_id, device_ts, items_count, total_price, payment_method, payment_status, is_exception in orders_data:
-        order = Order(
-            order_id=order_id,
-            device_id=device_id,
-            device_ts=device_ts,
-            server_ts=device_ts + timedelta(seconds=1),
-            items_count=items_count,
-            total_price=total_price,
-            currency='CNY',
-            payment_method=payment_method,
-            payment_status=payment_status,
-            is_exception=is_exception,
-            address=f'Generated from {device_id}'
-        )
-        db.session.add(order)
-        
-        # Add order items
+        order = Order.query.get(order_id)
+        if not order:
+            order = Order(order_id=order_id, device_id=device_id)
+            db.session.add(order)
+        order.device_ts = device_ts
+        order.server_ts = device_ts + timedelta(seconds=1)
+        order.items_count = items_count
+        order.total_price = total_price
+        order.currency = 'CNY'
+        order.payment_method = payment_method
+        order.payment_status = payment_status
+        order.is_exception = is_exception
+        order.address = f'Generated from {device_id}'
+
+        # Replace order items for idempotency
+        for it in order.items.all():
+            db.session.delete(it)
         for i in range(items_count):
             item = OrderItem(
                 order_id=order_id,
@@ -249,6 +286,46 @@ def seed_demo():
     
     db.session.flush()
     
+    # Create sample alarms
+    # Alarms (avoid duplicates by device+type OPEN)
+    def ensure_open_alarm(device_id, type_, severity, title, description, context):
+        existing = Alarm.query.filter_by(device_id=device_id, type=type_, status=AlarmStatus.OPEN.value).first()
+        if not existing:
+            a = Alarm(
+                device_id=device_id,
+                type=type_,
+                severity=severity,
+                title=title,
+                description=description,
+                status=AlarmStatus.OPEN.value,
+                context=context
+            )
+            db.session.add(a)
+
+    ensure_open_alarm(device1.device_id, AlarmType.MATERIAL_LOW.value, AlarmSeverity.WARN.value,
+                      '奶粉不足', '原料仓2奶粉低于阈值', {'bin_index': 2, 'threshold_pct': 20})
+    ensure_open_alarm(device2.device_id, AlarmType.OFFLINE.value, AlarmSeverity.CRITICAL.value,
+                      '设备离线', '设备超过2小时未上报', {'last_seen': str(device2.last_seen)})
+
+    # Create some remote commands history
+    # Remote commands (upsert by command_id)
+    def upsert_command(command_id, device_id, type_, payload, status, attempts, max_attempts, last_error=None):
+        c = RemoteCommand.query.get(command_id)
+        if not c:
+            c = RemoteCommand(command_id=command_id, device_id=device_id)
+            db.session.add(c)
+        c.type = type_
+        c.payload = payload
+        c.status = status
+        c.attempts = attempts
+        c.max_attempts = max_attempts
+        c.last_error = last_error
+
+    upsert_command('CMD_001', device1.device_id, CommandType.SYNC.value, {'action': 'sync_materials'}, CommandStatus.SUCCESS.value, 1, 3)
+    upsert_command('CMD_002', device1.device_id, CommandType.SET_PARAMS.value, {'temperature_target': 85, 'brew_time': 30}, CommandStatus.SUCCESS.value, 1, 3)
+    upsert_command('CMD_003', device1.device_id, CommandType.UPGRADE.value, {'version': '1.2.4'}, CommandStatus.FAIL.value, 2, 3, 'Download failed')
+    upsert_command('CMD_004', device2.device_id, CommandType.SYNC.value, {'action': 'sync_status'}, CommandStatus.PENDING.value, 0, 3)
+
     # Create some recipes
     recipe1 = Recipe(
         name='Classic Latte',
@@ -282,21 +359,19 @@ def seed_demo():
     
     db.session.add_all([recipe1, recipe2])
     
-    # Check if admin user exists, if not create it
+    # Ensure admin user exists
     admin_user = User.query.filter_by(email='admin@example.com').first()
     if not admin_user:
-        admin_user = User(
-            email='admin@example.com',
-            name='Admin User',
-            role=UserRole.ADMIN.value,
-            active=True
-        )
+        admin_user = User(email='admin@example.com', name='Admin User', role=UserRole.ADMIN.value, active=True)
         admin_user.set_password('Admin123!')
         db.session.add(admin_user)
+    else:
+        # keep existing password; ensure role is admin
+        admin_user.role = UserRole.ADMIN.value
     
     db.session.commit()
-    click.echo('Seed data created successfully!')
-    click.echo('Admin user: admin@example.com / Admin123!')
+    click.echo('Seed data created/updated successfully!')
+    click.echo('Admin user: admin@example.com / Admin123! (created if absent)')
 
 # Also register underscore alias for convenience
 cli.add_command(seed_demo, name='seed_demo')
