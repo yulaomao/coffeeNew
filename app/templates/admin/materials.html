@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}Materials - Coffee Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2><i class="bi bi-box-seam"></i> Materials Management</h2>
+        <p class="text-muted">Manage material dictionary and device bin assignments</p>
+    </div>
+</div>
+
+<!-- Material Dictionary -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="bi bi-journal-text"></i> Material Dictionary</h5>
+                <div>
+                    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addMaterialModal">
+                        <i class="bi bi-plus-circle"></i> Add Material
+                    </button>
+                    <button class="btn btn-info btn-sm" onclick="importMaterials()">
+                        <i class="bi bi-upload"></i> Import CSV
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="loadMaterials()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="materialLoading" class="text-center py-3">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading materials...</p>
+                </div>
+                
+                <div class="table-responsive" id="materialTable" style="display: none;">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Unit</th>
+                                <th>Density</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="materialTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Device Bin Overview -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-grid-3x3"></i> Device Bin Overview</h5>
+            </div>
+            <div class="card-body">
+                <div class="row" id="deviceBinCards">
+                    <div class="col-12 text-center text-muted py-3">
+                        <p>Device bin information will be displayed here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Material Modal -->
+<div class="modal fade" id="addMaterialModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Add New Material</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addMaterialForm">
+                    <div class="mb-3">
+                        <label for="materialCode" class="form-label">Material Code *</label>
+                        <input type="text" class="form-control" id="materialCode" required 
+                               placeholder="e.g., COFFEE_BEAN_A" style="text-transform: uppercase;">
+                    </div>
+                    <div class="mb-3">
+                        <label for="materialName" class="form-label">Name *</label>
+                        <input type="text" class="form-control" id="materialName" required 
+                               placeholder="e.g., Arabica Coffee Beans">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="materialType" class="form-label">Type</label>
+                                <select class="form-select" id="materialType">
+                                    <option value="">Select type...</option>
+                                    <option value="bean">Bean</option>
+                                    <option value="powder">Powder</option>
+                                    <option value="liquid">Liquid</option>
+                                    <option value="container">Container</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="materialUnit" class="form-label">Unit</label>
+                                <select class="form-select" id="materialUnit">
+                                    <option value="">Select unit...</option>
+                                    <option value="g">g (grams)</option>
+                                    <option value="ml">ml (milliliters)</option>
+                                    <option value="pcs">pcs (pieces)</option>
+                                    <option value="kg">kg (kilograms)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="materialDensity" class="form-label">Density (g/ml)</label>
+                        <input type="number" class="form-control" id="materialDensity" step="0.1" min="0" 
+                               placeholder="e.g., 0.6">
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="materialEnabled" checked>
+                        <label class="form-check-label" for="materialEnabled">
+                            Enabled
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="addMaterial()">
+                    <i class="bi bi-plus-circle"></i> Add Material
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadMaterials() {
+    try {
+        document.getElementById('materialLoading').style.display = 'block';
+        document.getElementById('materialTable').style.display = 'none';
+        
+        const data = await apiCall('/materials');
+        displayMaterials(data.materials);
+        
+    } catch (error) {
+        console.error('Failed to load materials:', error);
+        document.getElementById('materialTableBody').innerHTML = 
+            '<tr><td colspan="7" class="text-center text-danger">Failed to load materials</td></tr>';
+    } finally {
+        document.getElementById('materialLoading').style.display = 'none';
+        document.getElementById('materialTable').style.display = 'block';
+    }
+}
+
+function displayMaterials(materials) {
+    const tbody = document.getElementById('materialTableBody');
+    tbody.innerHTML = '';
+    
+    materials.forEach(material => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                <code>${material.code}</code>
+            </td>
+            <td>
+                <strong>${material.name}</strong>
+            </td>
+            <td>
+                <span class="badge bg-secondary">${material.type || 'N/A'}</span>
+            </td>
+            <td>${material.unit || 'N/A'}</td>
+            <td>${material.density ? material.density.toFixed(2) : 'N/A'}</td>
+            <td>
+                ${material.enabled ? 
+                  '<span class="badge bg-success">Enabled</span>' : 
+                  '<span class="badge bg-warning text-dark">Disabled</span>'
+                }
+            </td>
+            <td>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" onclick="editMaterial('${material.code}')">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="deleteMaterial('${material.code}')">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+async function addMaterial() {
+    try {
+        const form = document.getElementById('addMaterialForm');
+        const formData = new FormData(form);
+        
+        const materialData = {
+            code: document.getElementById('materialCode').value.toUpperCase(),
+            name: document.getElementById('materialName').value,
+            type: document.getElementById('materialType').value,
+            unit: document.getElementById('materialUnit').value,
+            density: parseFloat(document.getElementById('materialDensity').value) || null,
+            enabled: document.getElementById('materialEnabled').checked
+        };
+        
+        // Validate required fields
+        if (!materialData.code || !materialData.name) {
+            showAlert('Please fill in all required fields', 'warning');
+            return;
+        }
+        
+        // In a real implementation, this would call POST /api/v1/materials
+        showAlert('Add material functionality will be implemented', 'info');
+        
+        // Close modal and refresh list
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addMaterialModal'));
+        modal.hide();
+        
+        // Reset form
+        form.reset();
+        
+    } catch (error) {
+        console.error('Failed to add material:', error);
+        showAlert('Failed to add material', 'danger');
+    }
+}
+
+function editMaterial(code) {
+    showAlert(`Edit material functionality will be implemented for ${code}`, 'info');
+}
+
+function deleteMaterial(code) {
+    if (confirm(`Are you sure you want to delete material ${code}?`)) {
+        showAlert(`Delete material functionality will be implemented for ${code}`, 'info');
+    }
+}
+
+function importMaterials() {
+    showAlert('CSV import functionality will be implemented', 'info');
+}
+
+// Auto-capitalize material code input
+document.getElementById('materialCode').addEventListener('input', (e) => {
+    e.target.value = e.target.value.toUpperCase();
+});
+
+// Load materials when page loads
+document.addEventListener('DOMContentLoaded', loadMaterials);
+</script>
+{% endblock %}
