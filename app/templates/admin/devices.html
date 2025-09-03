@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Devices - Coffee Admin{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>Devices Management</h2>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Device List</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Device management interface will be implemented here.</p>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Device ID</th>
+                                <th>Alias</th>
+                                <th>Model</th>
+                                <th>Status</th>
+                                <th>Last Seen</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>CM001</td>
+                                <td>Downtown Coffee Machine</td>
+                                <td>CM-2000</td>
+                                <td><span class="badge bg-success">Online</span></td>
+                                <td>2 mins ago</td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary">Manage</button>
+                                    <button class="btn btn-sm btn-warning">Command</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>CM002</td>
+                                <td>Mall Coffee Machine</td>
+                                <td>CM-2000</td>
+                                <td><span class="badge bg-danger">Offline</span></td>
+                                <td>2 hours ago</td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary">Manage</button>
+                                    <button class="btn btn-sm btn-secondary" disabled>Command</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

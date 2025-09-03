@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Coffee Admin{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>Dashboard</h2>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h5 class="card-title">Total Devices</h5>
+                <h3 class="card-text">3</h3>
+                <small>2 online, 1 offline</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h5 class="card-title">Sales Today</h5>
+                <h3 class="card-text">¥245</h3>
+                <small>12 orders</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <h5 class="card-title">Low Materials</h5>
+                <h3 class="card-text">2</h3>
+                <small>Need refill</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <h5 class="card-title">Open Alarms</h5>
+                <h3 class="card-text">1</h3>
+                <small>Device offline</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <a href="{{ url_for('admin.devices') }}" class="btn btn-primary me-2">Manage Devices</a>
+                <a href="{{ url_for('admin.orders') }}" class="btn btn-success me-2">View Orders</a>
+                <button class="btn btn-warning me-2">Check Alarms</button>
+                <button class="btn btn-info">Export Data</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

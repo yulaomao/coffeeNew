@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Orders - Coffee Admin{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2>Orders Management</h2>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Recent Orders</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Orders management interface will be implemented here.</p>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Device</th>
+                                <th>Time</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                                <th>Payment</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>ORDER_001</td>
+                                <td>CM001</td>
+                                <td>2024-01-01 09:15</td>
+                                <td>2</td>
+                                <td>¥25.50</td>
+                                <td>WeChat</td>
+                                <td><span class="badge bg-success">Paid</span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary">View</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>ORDER_007</td>
+                                <td>CM001</td>
+                                <td>2024-01-01 13:30</td>
+                                <td>2</td>
+                                <td>¥35.00</td>
+                                <td>Card</td>
+                                <td><span class="badge bg-danger">Refund Failed</span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary">View</button>
+                                    <button class="btn btn-sm btn-warning">Refund</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
