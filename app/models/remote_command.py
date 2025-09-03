@@ -25,8 +25,9 @@ class CommandStatus(PyEnum):
 
 class RemoteCommand(BaseModel):
     __tablename__ = 'remote_commands'
+    __use_id_pk__ = False
     
-    command_id = Column(String(255), primary_key=True)  # UUID as PK
+    command_id = Column(String(255), primary_key=True)  # Natural primary key
     device_id = Column(String(255), ForeignKey('devices.device_id'), nullable=False)
     type = Column(String(50), nullable=False)
     payload = Column(JSON, nullable=True)

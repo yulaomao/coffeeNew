@@ -19,6 +19,7 @@ class TaskStatus(PyEnum):
 
 class TaskJob(BaseModel):
     __tablename__ = 'task_jobs'
+    __use_id_pk__ = False
     
     task_id = Column(String(255), primary_key=True)  # UUID as PK
     type = Column(String(50), nullable=False)
@@ -38,10 +39,8 @@ class TaskJob(BaseModel):
             status.in_([status.value for status in TaskStatus]),
             name='ck_task_status'
         ),
-        CheckConstraint(
-            progress >= 0 and progress <= 100,
-            name='ck_task_progress'
-        ),
+    # Use SQL text for range constraint to avoid Python boolean evaluation
+    CheckConstraint('progress >= 0 AND progress <= 100', name='ck_task_progress'),
     )
     
     def __repr__(self):

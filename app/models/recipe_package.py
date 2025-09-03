@@ -5,8 +5,9 @@ from app.models import BaseModel
 
 class RecipePackage(BaseModel):
     __tablename__ = 'recipe_packages'
+    __use_id_pk__ = False
     
-    package_id = Column(String(255), primary_key=True)  # Override id with package_id as PK
+    package_id = Column(String(255), primary_key=True)  # Natural primary key
     version = Column(String(50), nullable=False)
     package_url = Column(String(500), nullable=False)
     md5 = Column(String(32), nullable=False)

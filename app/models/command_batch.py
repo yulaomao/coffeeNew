@@ -5,8 +5,9 @@ from app.models import BaseModel
 
 class CommandBatch(BaseModel):
     __tablename__ = 'command_batches'
+    __use_id_pk__ = False
     
-    batch_id = Column(String(255), primary_key=True)  # UUID as PK
+    batch_id = Column(String(255), primary_key=True)  # Natural primary key
     command_type = Column(String(50), nullable=False)
     payload = Column(JSON, nullable=True)
     note = Column(String(500), nullable=True)

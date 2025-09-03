@@ -5,6 +5,7 @@ from app.models import BaseModel
 
 class OrderItem(BaseModel):
     __tablename__ = 'order_items'
+    # Uses default id PK from BaseModel
     
     order_id = Column(String(255), ForeignKey('orders.order_id'), nullable=False)
     product_id = Column(String(255), nullable=True)

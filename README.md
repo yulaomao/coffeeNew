@@ -17,7 +17,7 @@ A comprehensive Flask-based management system for coffee shop operations, provid
 ### 🏗️ Architecture
 - **Flask** web framework with blueprint organization
 - **SQLAlchemy** ORM with PostgreSQL database
-- **Celery** async task processing with Redis
+- **Celery** async task processing (memory backend by default; pluggable broker)
 - **Bootstrap 5** responsive UI with Chart.js
 - **RESTful API** with standardized JSON responses
 - **Role-based Access Control** (Admin/Ops/Viewer)
@@ -26,8 +26,7 @@ A comprehensive Flask-based management system for coffee shop operations, provid
 
 ### Prerequisites
 - Python 3.8+
-- PostgreSQL 15+
-- Redis 7+
+  
 
 ### Installation
 
@@ -47,7 +46,8 @@ A comprehensive Flask-based management system for coffee shop operations, provid
 3. **Configure environment**
    ```bash
    cp .env.example .env
-   # Edit .env with your database and Redis settings
+   # Edit .env with your database settings (Celery uses in-memory by default)
+   # Dev uses SQLite by default; set DATABASE_URL to use PostgreSQL
    ```
 
 4. **Initialize database**
@@ -196,7 +196,8 @@ make format         # Format code with black/isort
 |----------|-------------|---------|
 | `FLASK_ENV` | Environment (development/production) | development |
 | `DATABASE_URL` | PostgreSQL connection string | postgresql://... |
-| `REDIS_URL` | Redis connection string | redis://localhost:6379/0 |
+| `CELERY_BROKER_URL` | Celery broker URL | memory:// |
+| `CELERY_RESULT_BACKEND` | Celery result backend | cache+memory:// |
 | `SECRET_KEY` | Flask secret key | change-me-in-production |
 | `ENABLE_SSE` | Server-sent events for real-time updates | false |
 | `ENABLE_DEVICE_TOKEN` | Device token authentication | false |
@@ -230,7 +231,7 @@ Exposes Prometheus-compatible metrics:
 ### Health Checks
 - **API Health**: `/api/v1/health` - Service status
 - **Database**: Connection and query performance
-- **Redis**: Cache and task queue status
+- **Celery**: Task queue status
 
 ## Production Deployment
 
@@ -259,7 +260,7 @@ docker-compose up -d
 
 ### Performance Considerations
 - **Database Connection Pooling**: Optimized SQLAlchemy settings
-- **Redis Caching**: Session storage and task queuing
+- **Celery Backends**: In-memory by default; configure RabbitMQ/Redis in production
 - **Static File Serving**: Use nginx or CDN for static assets
 - **Load Balancing**: Multiple Gunicorn workers
 

@@ -23,6 +23,8 @@ def cli():
 @with_appcontext
 def init_db(drop):
     """Initialize the database."""
+    # Ensure all models are imported so SQLAlchemy can create tables
+    import app.models  # noqa: F401
     if drop:
         click.echo('Dropping existing tables...')
         db.drop_all()
@@ -78,7 +80,7 @@ def create_user(email, password, name, role):
     click.echo(f'User {email} created successfully with role {role}!')
 
 
-@cli.command()
+@cli.command(name='seed-demo')
 @with_appcontext
 def seed_demo():
     """Create demo/seed data."""
@@ -295,6 +297,9 @@ def seed_demo():
     db.session.commit()
     click.echo('Seed data created successfully!')
     click.echo('Admin user: admin@example.com / Admin123!')
+
+# Also register underscore alias for convenience
+cli.add_command(seed_demo, name='seed_demo')
 
 
 if __name__ == '__main__':

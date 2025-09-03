@@ -15,8 +15,9 @@ class DeviceStatus(PyEnum):
 
 class Device(BaseModel):
     __tablename__ = 'devices'
+    __use_id_pk__ = False
     
-    device_id = Column(String(255), primary_key=True)  # Override id with device_id as PK
+    device_id = Column(String(255), primary_key=True)  # Natural primary key
     alias = Column(String(255), nullable=True)
     model = Column(String(100), nullable=True)
     fw_version = Column(String(50), nullable=True)

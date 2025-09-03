@@ -21,8 +21,9 @@ class PaymentStatus(PyEnum):
 
 class Order(BaseModel):
     __tablename__ = 'orders'
+    __use_id_pk__ = False
     
-    order_id = Column(String(255), primary_key=True)  # Override id with order_id as PK
+    order_id = Column(String(255), primary_key=True)  # Natural primary key
     device_id = Column(String(255), ForeignKey('devices.device_id'), nullable=False)
     device_ts = Column(DateTime, nullable=True)  # Timestamp from device
     server_ts = Column(DateTime, default=datetime.utcnow, nullable=False)  # Server timestamp

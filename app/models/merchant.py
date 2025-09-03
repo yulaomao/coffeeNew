@@ -1,5 +1,6 @@
 from enum import Enum as PyEnum
 from sqlalchemy import Column, String, CheckConstraint
+from sqlalchemy.orm import relationship
 from app.models import BaseModel
 
 

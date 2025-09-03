@@ -1,5 +1,14 @@
 import os
-from dotenv import load_dotenv
+import importlib
+
+def _optional_load_dotenv():
+    try:
+        dotenv = importlib.import_module('dotenv')
+        return getattr(dotenv, 'load_dotenv', lambda *a, **k: False)
+    except Exception:
+        return lambda *a, **k: False
+
+load_dotenv = _optional_load_dotenv()
 
 # Load environment variables from .env file
 load_dotenv()
@@ -22,15 +31,18 @@ class Config:
         'pool_recycle': 300,
     }
     
-    # Redis settings
-    REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+    # Broker/Backend settings (no Redis by default)
+    # Prefer environment overrides, otherwise fall back to in-memory/backends
+    REDIS_URL = os.environ.get('REDIS_URL')  # Optional; not required by default
     
-    # Celery settings
+    # Celery settings: default to in-memory for local/dev without Redis
     CELERY = {
-        'broker_url': os.environ.get('CELERY_BROKER_URL', os.environ.get('REDIS_URL', 'redis://localhost:6379/0')),
-        'result_backend': os.environ.get('CELERY_RESULT_BACKEND', os.environ.get('REDIS_URL', 'redis://localhost:6379/0')),
+        'broker_url': os.environ.get('CELERY_BROKER_URL', 'memory://'),
+        'result_backend': os.environ.get('CELERY_RESULT_BACKEND', 'cache+memory://'),
         'task_ignore_result': True,
         'timezone': 'UTC',
+        # Execute tasks eagerly in testing if requested
+        'task_always_eager': os.environ.get('CELERY_TASK_ALWAYS_EAGER', 'False').lower() == 'true',
     }
     
     # Security settings
@@ -47,7 +59,8 @@ class Config:
     
     # Rate limiting
     RATELIMIT_ENABLED = os.environ.get('RATELIMIT_ENABLED', 'True').lower() == 'true'
-    RATELIMIT_STORAGE_URL = os.environ.get('RATELIMIT_STORAGE_URL', os.environ.get('REDIS_URL', 'redis://localhost:6379/0'))
+    # Default to in-memory rate limit storage if not provided
+    RATELIMIT_STORAGE_URL = os.environ.get('RATELIMIT_STORAGE_URL', 'memory://')
     
     # File upload
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
@@ -61,6 +74,8 @@ class DevelopmentConfig(Config):
     """Development configuration."""
     DEBUG = True
     SQLALCHEMY_ECHO = True
+    # Use SQLite by default for local development (override via DATABASE_URL if needed)
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///coffee_dev.db')
 
 
 class ProductionConfig(Config):
@@ -74,6 +89,9 @@ class TestingConfig(Config):
     TESTING = True
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
     WTF_CSRF_ENABLED = False
+    # Ensure Celery tasks run synchronously during tests
+    CELERY = Config.CELERY.copy()
+    CELERY.update({'task_always_eager': True})
 
 
 # Configuration mapping
