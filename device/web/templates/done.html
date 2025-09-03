@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="done-container">
+    <div class="card">
+        <div class="success-animation">
+            <div class="checkmark">✅</div>
+            <div class="celebration">🎉</div>
+        </div>
+        
+        <h2 class="done-title">制作完成！</h2>
+        <p class="done-subtitle">您的饮品已经准备好了</p>
+        
+        <div class="pickup-instructions">
+            <div class="pickup-icon">👋</div>
+            <div class="pickup-text">
+                <h3>请取走您的饮品</h3>
+                <p>请在取餐区取走您的咖啡<br>感谢您的使用，祝您用餐愉快！</p>
+            </div>
+        </div>
+        
+        <div class="temperature-warning">
+            <div class="warning-icon">⚠️</div>
+            <div class="warning-text">饮品较热，请小心烫手</div>
+        </div>
+        
+        <div class="rating-section">
+            <h3>为本次服务评分</h3>
+            <div class="rating-stars" id="rating-stars">
+                <span class="star" data-rating="1">⭐</span>
+                <span class="star" data-rating="2">⭐</span>
+                <span class="star" data-rating="3">⭐</span>
+                <span class="star" data-rating="4">⭐</span>
+                <span class="star" data-rating="5">⭐</span>
+            </div>
+            <p class="rating-text" id="rating-text">点击星星进行评分</p>
+        </div>
+        
+        <div class="action-buttons">
+            <a href="{{ url_for('menu') }}" class="btn btn-primary">再来一杯</a>
+            <a href="{{ url_for('idle') }}" class="btn btn-success btn-large">完成订单</a>
+        </div>
+        
+        <div class="auto-return">
+            <p>页面将在 <span id="countdown">30</span> 秒后自动返回首页</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.done-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding-top: 20px;
+}
+
+.success-animation {
+    text-align: center;
+    position: relative;
+    padding: 40px 20px;
+}
+
+.checkmark {
+    font-size: 80px;
+    animation: bounce 1s ease-in-out;
+}
+
+.celebration {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 32px;
+    animation: celebrate 2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+    0%, 20%, 60%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-20px); }
+    80% { transform: translateY(-10px); }
+}
+
+@keyframes celebrate {
+    0%, 100% { transform: translateX(-50%) rotate(-10deg); }
+    50% { transform: translateX(-50%) rotate(10deg); }
+}
+
+.done-title {
+    text-align: center;
+    color: #27ae60;
+    font-size: 32px;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.done-subtitle {
+    text-align: center;
+    color: #2c3e50;
+    font-size: 18px;
+    margin-bottom: 40px;
+}
+
+.pickup-instructions {
+    display: flex;
+    align-items: center;
+    background: #e8f5e8;
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 20px;
+    border-left: 4px solid #27ae60;
+}
+
+.pickup-icon {
+    font-size: 48px;
+    margin-right: 20px;
+    animation: wave 2s ease-in-out infinite;
+}
+
+@keyframes wave {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(15deg); }
+    75% { transform: rotate(-15deg); }
+}
+
+.pickup-text h3 {
+    color: #27ae60;
+    margin-bottom: 10px;
+    font-size: 20px;
+}
+
+.pickup-text p {
+    color: #2c3e50;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.temperature-warning {
+    display: flex;
+    align-items: center;
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 30px;
+}
+
+.warning-icon {
+    font-size: 24px;
+    margin-right: 15px;
+}
+
+.warning-text {
+    color: #856404;
+    font-weight: 500;
+}
+
+.rating-section {
+    text-align: center;
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 30px;
+}
+
+.rating-section h3 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+}
+
+.rating-stars {
+    font-size: 36px;
+    margin: 15px 0;
+    cursor: pointer;
+}
+
+.star {
+    margin: 0 5px;
+    transition: all 0.3s;
+    filter: grayscale(100%);
+    opacity: 0.5;
+}
+
+.star:hover,
+.star.active {
+    filter: grayscale(0%);
+    opacity: 1;
+    transform: scale(1.2);
+}
+
+.rating-text {
+    color: #7f8c8d;
+    margin: 10px 0 0 0;
+    font-size: 14px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-bottom: 30px;
+}
+
+.auto-return {
+    text-align: center;
+    color: #7f8c8d;
+    font-size: 14px;
+    background: #ecf0f1;
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.auto-return span {
+    font-weight: 600;
+    color: #e67e22;
+}
+
+@media (max-width: 768px) {
+    .done-container {
+        padding-top: 10px;
+    }
+    
+    .checkmark {
+        font-size: 60px;
+    }
+    
+    .celebration {
+        font-size: 24px;
+    }
+    
+    .done-title {
+        font-size: 28px;
+    }
+    
+    .pickup-instructions {
+        flex-direction: column;
+        text-align: center;
+        padding: 20px;
+    }
+    
+    .pickup-icon {
+        margin-right: 0;
+        margin-bottom: 15px;
+    }
+    
+    .rating-stars {
+        font-size: 28px;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .action-buttons .btn {
+        width: 200px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let countdown = 30;
+    let selectedRating = 0;
+    
+    // Countdown timer
+    function startCountdown() {
+        const countdownEl = document.getElementById('countdown');
+        
+        const interval = setInterval(() => {
+            countdown--;
+            countdownEl.textContent = countdown;
+            
+            if (countdown <= 0) {
+                clearInterval(interval);
+                window.location.href = '{{ url_for("idle") }}';
+            }
+        }, 1000);
+    }
+    
+    // Rating system
+    function initRating() {
+        const stars = document.querySelectorAll('.star');
+        const ratingText = document.getElementById('rating-text');
+        
+        stars.forEach((star, index) => {
+            star.addEventListener('click', () => {
+                selectedRating = index + 1;
+                updateStars(selectedRating);
+                submitRating(selectedRating);
+            });
+            
+            star.addEventListener('mouseenter', () => {
+                updateStars(index + 1);
+            });
+        });
+        
+        document.getElementById('rating-stars').addEventListener('mouseleave', () => {
+            updateStars(selectedRating);
+        });
+    }
+    
+    function updateStars(rating) {
+        const stars = document.querySelectorAll('.star');
+        const ratingText = document.getElementById('rating-text');
+        
+        stars.forEach((star, index) => {
+            if (index < rating) {
+                star.classList.add('active');
+            } else {
+                star.classList.remove('active');
+            }
+        });
+        
+        if (rating > 0) {
+            const ratingTexts = [
+                '非常不满意',
+                '不满意', 
+                '一般',
+                '满意',
+                '非常满意'
+            ];
+            ratingText.textContent = `您的评分: ${rating} 星 - ${ratingTexts[rating - 1]}`;
+        } else {
+            ratingText.textContent = '点击星星进行评分';
+        }
+    }
+    
+    function submitRating(rating) {
+        // Submit rating to backend
+        fetch('/api/rating', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ rating: rating })
+        })
+        .then(response => response.json())
+        .then(data => {
+            showMessage(`感谢您的 ${rating} 星评价！`, 'success');
+        })
+        .catch(error => {
+            console.error('Rating submission error:', error);
+        });
+    }
+    
+    // Initialize components
+    startCountdown();
+    initRating();
+    
+    // Play success sound (if available)
+    try {
+        // const audio = new Audio('/static/sounds/success.mp3');
+        // audio.play().catch(e => console.log('Audio play failed:', e));
+    } catch (e) {
+        // Ignore audio errors
+    }
+    
+    // Celebrate animation
+    setTimeout(() => {
+        const celebration = document.querySelector('.celebration');
+        celebration.style.animation = 'celebrate 0.5s ease-in-out 3';
+    }, 1000);
+</script>
+{% endblock %}

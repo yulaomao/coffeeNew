@@ -1,0 +1,73 @@
+{
+  "version": "1.0.0",
+  "created_at": "2024-01-01T00:00:00Z",
+  "recipes": [
+    {
+      "id": 201,
+      "name": "美式咖啡",
+      "price": 12.0,
+      "category": "hot",
+      "description": "经典美式咖啡，香醇浓郁",
+      "image_url": "/assets/images/americano.jpg",
+      "temperature": "hot",
+      "steps": [
+        {
+          "action": "grind",
+          "bin": "BEAN_A",
+          "amount": 15,
+          "unit": "g",
+          "duration_ms": 4000
+        },
+        {
+          "action": "brew",
+          "water_ml": 200,
+          "duration_ms": 30000
+        }
+      ],
+      "materials": {
+        "BEAN_A": 15.0,
+        "WATER": 200.0
+      }
+    },
+    {
+      "id": 202,
+      "name": "拿铁",
+      "price": 18.0,
+      "category": "hot", 
+      "description": "香浓拿铁，奶香浓郁",
+      "image_url": "/assets/images/latte.jpg",
+      "temperature": "hot",
+      "steps": [
+        {
+          "action": "grind",
+          "bin": "BEAN_A",
+          "amount": 12,
+          "unit": "g",
+          "duration_ms": 3500
+        },
+        {
+          "action": "brew",
+          "water_ml": 60,
+          "duration_ms": 25000
+        },
+        {
+          "action": "add_powder",
+          "bin": "MILK_POWDER",
+          "amount": 8,
+          "unit": "g",
+          "duration_ms": 2000
+        },
+        {
+          "action": "mix",
+          "duration_ms": 5000
+        }
+      ],
+      "materials": {
+        "BEAN_A": 12.0,
+        "MILK_POWDER": 8.0,
+        "WATER": 60.0
+      }
+    }
+  ],
+  "md5": "sample_manifest_hash_1234"
+}

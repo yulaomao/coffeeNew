@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="maintenance-container">
+    <div class="card">
+        <h2 class="card-title">系统维护</h2>
+        
+        <div class="maintenance-grid">
+            <div class="status-card">
+                <h3>设备状态</h3>
+                <div class="status-items">
+                    <div class="status-item">
+                        <span class="status-label">运行状态:</span>
+                        <span class="status-value">{{ status.device_status or "正常" }}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">水温:</span>
+                        <span class="status-value">{{ status.temperature or 85 }}°C</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">水位:</span>
+                        <span class="status-value">{{ status.water_level or "充足" }}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">杯子检测:</span>
+                        <span class="status-value">{{ "已放置" if status.cup_detected else "未检测" }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <h3>物料状态</h3>
+                <div class="status-items">
+                    <div class="status-item">
+                        <span class="status-label">咖啡豆:</span>
+                        <span class="status-value">{{ status.coffee_beans or "充足" }}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">牛奶:</span>
+                        <span class="status-value">{{ status.milk or "充足" }}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">糖浆:</span>
+                        <span class="status-value">{{ status.syrup or "充足" }}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">纸杯:</span>
+                        <span class="status-value">{{ status.cups or "充足" }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <h3>系统信息</h3>
+                <div class="status-items">
+                    <div class="status-item">
+                        <span class="status-label">软件版本:</span>
+                        <span class="status-value">v1.0.0</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">最后更新:</span>
+                        <span class="status-value">{{ status.last_update or "今天" }}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">网络状态:</span>
+                        <span class="status-value">{{ "已连接" if status.network_connected else "未连接" }}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">运行时间:</span>
+                        <span class="status-value">{{ status.uptime or "24小时" }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="actions-card">
+                <h3>维护操作</h3>
+                <div class="maintenance-actions">
+                    <button class="btn btn-primary" onclick="performAction('clean')">
+                        清洁设备
+                    </button>
+                    <button class="btn btn-warning" onclick="performAction('calibrate')">
+                        校准传感器
+                    </button>
+                    <button class="btn btn-success" onclick="performAction('refill')">
+                        补充物料
+                    </button>
+                    <button class="btn" style="background: #9b59b6; color: white;" onclick="performAction('test')">
+                        系统测试
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 40px;">
+            <a href="{{ url_for('idle') }}" class="btn btn-warning btn-large">退出维护</a>
+        </div>
+    </div>
+</div>
+
+<div id="loading-overlay" class="loading-overlay" style="display: none;">
+    <div class="loading-spinner"></div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.maintenance-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding-top: 20px;
+}
+
+.maintenance-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin: 30px 0;
+}
+
+.status-card {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.status-card h3 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-size: 18px;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 8px;
+}
+
+.status-items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+}
+
+.status-label {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.status-value {
+    color: #27ae60;
+    font-weight: 600;
+}
+
+.actions-card {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.actions-card h3 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-size: 18px;
+    border-bottom: 2px solid #f39c12;
+    padding-bottom: 8px;
+}
+
+.maintenance-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 15px;
+}
+
+.maintenance-actions .btn {
+    padding: 12px 20px;
+    font-size: 14px;
+    min-width: 120px;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .maintenance-container {
+        padding-top: 10px;
+    }
+    
+    .maintenance-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .status-card,
+    .actions-card {
+        padding: 15px;
+    }
+    
+    .maintenance-actions {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+    
+    .maintenance-actions .btn {
+        font-size: 13px;
+        padding: 10px 15px;
+        min-width: auto;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function performAction(action) {
+        const actionNames = {
+            'clean': '清洁设备',
+            'calibrate': '校准传感器',
+            'refill': '补充物料',
+            'test': '系统测试'
+        };
+        
+        const actionName = actionNames[action] || action;
+        
+        if (confirm(`确定要执行 "${actionName}" 操作吗？`)) {
+            showLoading(true);
+            showMessage(`正在执行 ${actionName}...`, 'info');
+            
+            // Simulate maintenance action
+            fetch(`/api/maintenance/${action}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ action: action })
+            })
+            .then(response => response.json())
+            .then(data => {
+                showLoading(false);
+                if (data.success) {
+                    showMessage(`${actionName} 完成！`, 'success');
+                    // Refresh status in 2 seconds
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    showMessage(`${actionName} 失败: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                showLoading(false);
+                console.error('Maintenance action error:', error);
+                showMessage(`${actionName} 执行失败`, 'error');
+            });
+        }
+    }
+    
+    // Auto-refresh status every 30 seconds
+    setInterval(() => {
+        if (window.location.pathname === '/maintenance') {
+            fetch('/api/status')
+            .then(response => response.json())
+            .then(data => {
+                // Update status indicators
+                updateStatusDisplay(data);
+            })
+            .catch(error => console.error('Status update error:', error));
+        }
+    }, 30000);
+    
+    function updateStatusDisplay(status) {
+        // Update temperature
+        const tempValue = document.querySelector('.status-value');
+        if (tempValue && status.temperature) {
+            tempValue.textContent = status.temperature + '°C';
+        }
+        
+        // Update other status values as needed
+        // This would be implemented based on the actual status structure
+    }
+</script>
+{% endblock %}

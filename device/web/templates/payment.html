@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="payment-container">
+    <div class="card">
+        <h2 class="card-title">选择支付方式</h2>
+        
+        <div class="order-summary-small">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>订单总计:</span>
+                <span class="price-highlight">¥{{ "%.1f" | format(order.total_price) }}</span>
+            </div>
+        </div>
+        
+        <div class="payment-methods">
+            <div class="payment-method" onclick="selectPayment('wechat')">
+                <div class="payment-icon">
+                    <div style="font-size: 48px; color: #07c160;">💬</div>
+                </div>
+                <div class="payment-info">
+                    <h3>微信支付</h3>
+                    <p>安全便捷，扫码即付</p>
+                </div>
+                <div class="payment-arrow">→</div>
+            </div>
+            
+            <div class="payment-method" onclick="selectPayment('alipay')">
+                <div class="payment-icon">
+                    <div style="font-size: 48px; color: #1677ff;">💳</div>
+                </div>
+                <div class="payment-info">
+                    <h3>支付宝</h3>
+                    <p>安全快速，扫码支付</p>
+                </div>
+                <div class="payment-arrow">→</div>
+            </div>
+            
+            <!-- Future payment methods can be added here -->
+            <div class="payment-method disabled">
+                <div class="payment-icon">
+                    <div style="font-size: 48px; color: #bdc3c7;">💰</div>
+                </div>
+                <div class="payment-info">
+                    <h3>银行卡支付</h3>
+                    <p>即将上线</p>
+                </div>
+                <div class="payment-arrow">→</div>
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 40px;">
+            <a href="{{ url_for('confirm_order') }}" class="btn btn-warning">返回确认</a>
+        </div>
+    </div>
+</div>
+
+<div id="loading-overlay" class="loading-overlay" style="display: none;">
+    <div class="loading-spinner"></div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.payment-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding-top: 40px;
+}
+
+.order-summary-small {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 30px;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.price-highlight {
+    color: #27ae60;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.payment-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.payment-method {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    border: 2px solid #ddd;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: white;
+}
+
+.payment-method:hover:not(.disabled) {
+    border-color: #3498db;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transform: translateY(-2px);
+}
+
+.payment-method.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.payment-icon {
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8f9fa;
+    border-radius: 50%;
+    margin-right: 20px;
+}
+
+.payment-info {
+    flex: 1;
+}
+
+.payment-info h3 {
+    font-size: 18px;
+    margin-bottom: 5px;
+    color: #2c3e50;
+}
+
+.payment-info p {
+    color: #7f8c8d;
+    margin: 0;
+}
+
+.payment-arrow {
+    font-size: 24px;
+    color: #bdc3c7;
+    font-weight: bold;
+}
+
+.payment-method:hover:not(.disabled) .payment-arrow {
+    color: #3498db;
+}
+
+@media (max-width: 768px) {
+    .payment-method {
+        padding: 15px;
+    }
+    
+    .payment-icon {
+        width: 60px;
+        height: 60px;
+        margin-right: 15px;
+    }
+    
+    .payment-icon div {
+        font-size: 36px !important;
+    }
+    
+    .payment-info h3 {
+        font-size: 16px;
+    }
+    
+    .payment-info p {
+        font-size: 14px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function selectPayment(method) {
+        if (event.target.closest('.disabled')) {
+            showMessage('该支付方式暂未开通', 'warning');
+            return;
+        }
+        
+        showLoading(true);
+        
+        // Navigate to QR payment page
+        window.location.href = `/qr/${method}`;
+    }
+    
+    // Auto-timeout for payment selection
+    setTimeout(() => {
+        if (window.location.pathname === '/payment') {
+            if (confirm('支付超时，是否返回菜单重新选择？')) {
+                window.location.href = '{{ url_for("menu") }}';
+            }
+        }
+    }, 300000); // 5 minutes timeout
+</script>
+{% endblock %}

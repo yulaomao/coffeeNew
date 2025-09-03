@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<style>
+    .welcome-container {
+        text-align: center;
+        padding: 60px 20px;
+        height: calc(100vh - 200px);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    
+    .coffee-animation {
+        font-size: 120px;
+        margin-bottom: 30px;
+        animation: float 3s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="welcome-container">
+    <div class="coffee-animation">☕</div>
+    
+    <h1 class="welcome-title">欢迎使用智能咖啡机</h1>
+    <p class="welcome-subtitle">Welcome to Smart Coffee Machine</p>
+    
+    <div class="welcome-features">
+        <div class="feature-item">
+            <div class="feature-icon">🔥</div>
+            <div class="feature-text">新鲜现磨</div>
+        </div>
+        <div class="feature-item">
+            <div class="feature-icon">⚡</div>
+            <div class="feature-text">快速制作</div>
+        </div>
+        <div class="feature-item">
+            <div class="feature-icon">🎯</div>
+            <div class="feature-text">个性定制</div>
+        </div>
+    </div>
+    
+    <div style="margin-top: 60px;">
+        <a href="{{ url_for('menu') }}" class="btn btn-primary btn-large" id="start-order-btn">
+            开始点单
+        </a>
+    </div>
+    
+    <!-- Maintenance access (hidden) -->
+    <div style="position: absolute; top: 20px; right: 20px; width: 50px; height: 50px;" 
+         onclick="handleMaintenanceClick()" id="maintenance-trigger"></div>
+</div>
+
+<div id="loading-overlay" class="loading-overlay" style="display: none;">
+    <div class="loading-spinner"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let maintenanceClickCount = 0;
+    let maintenanceTimer = null;
+    
+    function handleMaintenanceClick() {
+        maintenanceClickCount++;
+        
+        // Clear previous timer
+        if (maintenanceTimer) {
+            clearTimeout(maintenanceTimer);
+        }
+        
+        // If 3 clicks within 2 seconds, show maintenance login
+        if (maintenanceClickCount >= 3) {
+            showMaintenanceLogin();
+            maintenanceClickCount = 0;
+        } else {
+            // Reset counter after 2 seconds
+            maintenanceTimer = setTimeout(() => {
+                maintenanceClickCount = 0;
+            }, 2000);
+        }
+    }
+    
+    function showMaintenanceLogin() {
+        const password = prompt('请输入维护密码:');
+        if (password) {
+            fetch('/api/maintenance/auth', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ password: password })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '/maintenance';
+                } else {
+                    alert('密码错误');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('验证失败');
+            });
+        }
+    }
+    
+    // Start order button handler
+    document.getElementById('start-order-btn').addEventListener('click', function(e) {
+        e.preventDefault();
+        showLoading(true);
+        
+        // API call to start new order
+        fetch('/api/start_order', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = data.redirect;
+            } else {
+                showLoading(false);
+                showMessage('启动订单失败', 'error');
+            }
+        })
+        .catch(error => {
+            showLoading(false);
+            console.error('Error:', error);
+            showMessage('网络错误', 'error');
+        });
+    });
+    
+    // Auto-refresh status
+    setInterval(() => {
+        socket.emit('request_status');
+    }, 5000);
+</script>
+{% endblock %}

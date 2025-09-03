@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="product-detail-container">
+    <div class="grid-2">
+        <!-- Product Image -->
+        <div class="card">
+            <div class="product-image" style="height: 300px; border-radius: 8px;">
+                {% if product.image %}
+                    <img src="{{ product.image }}" alt="{{ product.name }}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">
+                {% else %}
+                    <div style="font-size: 80px;">☕</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Product Details -->
+        <div class="card">
+            <h2 class="card-title">{{ product.name }}</h2>
+            <p style="color: #7f8c8d; margin-bottom: 20px;">{{ product.description or '香浓美味的咖啡饮品' }}</p>
+            
+            <div style="margin-bottom: 20px;">
+                <span class="product-price">¥{{ "%.1f" | format(product.price or 15.0) }}</span>
+            </div>
+            
+            {% if product.available %}
+                <form method="POST" action="{{ url_for('confirm_order') }}" id="product-form">
+                    <input type="hidden" name="product_id" value="{{ product.id }}">
+                    
+                    <!-- Size Selection -->
+                    {% if product.sizes %}
+                    <div class="form-group">
+                        <label class="form-label">选择杯型</label>
+                        <div class="option-group">
+                            {% for size in product.sizes %}
+                            <label class="option-item">
+                                <input type="radio" name="size" value="{{ size.id }}" {% if loop.first %}checked{% endif %}>
+                                <span>{{ size.name }} (+¥{{ "%.1f" | format(size.extra_price or 0) }})</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Temperature Selection -->
+                    <div class="form-group">
+                        <label class="form-label">选择温度</label>
+                        <div class="option-group">
+                            <label class="option-item">
+                                <input type="radio" name="temperature" value="hot" checked>
+                                <span>热饮 🔥</span>
+                            </label>
+                            <label class="option-item">
+                                <input type="radio" name="temperature" value="warm">
+                                <span>温饮 ♨️</span>
+                            </label>
+                            <label class="option-item">
+                                <input type="radio" name="temperature" value="cold">
+                                <span>冷饮 🧊</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Sugar Level -->
+                    <div class="form-group">
+                        <label class="form-label">糖分选择</label>
+                        <div class="option-group">
+                            <label class="option-item">
+                                <input type="radio" name="sugar" value="none">
+                                <span>无糖</span>
+                            </label>
+                            <label class="option-item">
+                                <input type="radio" name="sugar" value="light">
+                                <span>少糖</span>
+                            </label>
+                            <label class="option-item">
+                                <input type="radio" name="sugar" value="normal" checked>
+                                <span>标准</span>
+                            </label>
+                            <label class="option-item">
+                                <input type="radio" name="sugar" value="extra">
+                                <span>多糖</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Milk Options -->
+                    {% if product.allow_milk %}
+                    <div class="form-group">
+                        <label class="form-label">奶类选择</label>
+                        <div class="option-group">
+                            <label class="option-item">
+                                <input type="radio" name="milk" value="none">
+                                <span>无奶</span>
+                            </label>
+                            <label class="option-item">
+                                <input type="radio" name="milk" value="whole" checked>
+                                <span>全脂牛奶</span>
+                            </label>
+                            <label class="option-item">
+                                <input type="radio" name="milk" value="skim">
+                                <span>脱脂牛奶</span>
+                            </label>
+                            <label class="option-item">
+                                <input type="radio" name="milk" value="oat">
+                                <span>燕麦奶 (+¥2.0)</span>
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div style="margin-top: 30px;">
+                        <button type="submit" class="btn btn-success btn-large">
+                            加入订单
+                        </button>
+                    </div>
+                </form>
+            {% else %}
+                <div class="card" style="background: #fef2f2; border: 1px solid #fecaca;">
+                    <h3 style="color: #dc2626;">暂时缺货</h3>
+                    <p style="color: #7f1d1d;">该饮品目前缺少必要原料，请选择其他饮品或稍后再试。</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div style="text-align: center; margin-top: 40px;">
+        <a href="{{ url_for('menu') }}" class="btn btn-warning">返回菜单</a>
+    </div>
+</div>
+
+<div id="loading-overlay" class="loading-overlay" style="display: none;">
+    <div class="loading-spinner"></div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.option-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.option-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.option-item:hover {
+    border-color: #3498db;
+    background: #f8f9fa;
+}
+
+.option-item input[type="radio"] {
+    margin-right: 8px;
+}
+
+.option-item input[type="radio"]:checked + span {
+    font-weight: 500;
+    color: #3498db;
+}
+
+.option-item:has(input[type="radio"]:checked) {
+    border-color: #3498db;
+    background: #f0f8ff;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('product-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        showLoading(true);
+        
+        // Submit form data
+        const formData = new FormData(this);
+        
+        fetch('{{ url_for("confirm_order") }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (response.ok) {
+                window.location.href = '/confirm';
+            } else {
+                throw new Error('Failed to create order');
+            }
+        })
+        .catch(error => {
+            showLoading(false);
+            console.error('Error:', error);
+            showMessage('创建订单失败', 'error');
+        });
+    });
+    
+    // Update price based on selections
+    function updatePrice() {
+        // In a real implementation, calculate dynamic pricing based on selections
+        // For now, just show the base price
+    }
+    
+    // Add event listeners to all radio buttons for price updates
+    document.querySelectorAll('input[type="radio"]').forEach(radio => {
+        radio.addEventListener('change', updatePrice);
+    });
+</script>
+{% endblock %}
