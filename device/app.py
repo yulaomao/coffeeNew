@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
-智能咖啡机设备端主程序
-Smart Coffee Machine Device Application
+智能咖啡机设备端主程序 - Flask Web版本
+Smart Coffee Machine Device Application - Flask Web Version
 
-一次成型实现指令 - 触控大屏 + 本地代理
+转换为Web应用版本 - Flask + WebSocket + 设备代理
 """
 
 import sys
 import asyncio
 import signal
+import threading
 from pathlib import Path
 from loguru import logger
 
@@ -21,11 +22,11 @@ from agent.supervisor import agent_supervisor
 from utils.sse import event_bus
 
 class CoffeeMachineApp:
-    """Main coffee machine application"""
+    """Main coffee machine application - Web version"""
     
     def __init__(self):
         self.running = False
-        self.ui_app = None
+        self.web_app = None
         self.setup_logging()
     
     def setup_logging(self):
@@ -54,7 +55,7 @@ class CoffeeMachineApp:
             compression="zip"
         )
         
-        logger.info("Logging configured")
+        logger.info("Logging configured for Web version")
     
     async def start_agent(self):
         """Start background agent"""
@@ -66,125 +67,80 @@ class CoffeeMachineApp:
         logger.info("Stopping device agent...")
         await agent_supervisor.stop()
     
-    def start_ui(self):
-        """Start PySide6 UI application"""
+    def start_web_ui(self):
+        """Start Flask Web UI application"""
         try:
-            from PySide6.QtWidgets import QApplication
-            from PySide6.QtCore import Qt, QTimer
-            from kiosk.main_window import CoffeeMachineMainWindow
+            # Import and run the Flask web application
+            logger.info("Starting Flask Web UI...")
+            from web_app import app, socketio, run_agent
             
-            # Create QApplication
-            app = QApplication(sys.argv)
+            # Start agent in background thread
+            agent_thread = threading.Thread(target=run_agent, daemon=True)
+            agent_thread.start()
             
-            # Set application properties
-            app.setApplicationName("智能咖啡机")
-            app.setApplicationVersion("1.0.0")
-            app.setOrganizationName("Coffee Machine Co.")
+            # Get configuration
+            host = getattr(config, 'WEB_HOST', '0.0.0.0')
+            port = getattr(config, 'WEB_PORT', 5000)
+            debug = getattr(config, 'DEBUG', False)
             
-            # Create main window
-            main_window = CoffeeMachineMainWindow()
+            logger.info(f"Starting Flask app on {host}:{port}")
+            logger.info("Web UI will be available at:")
+            logger.info(f"  - Local: http://localhost:{port}")
+            logger.info(f"  - Network: http://{host}:{port}")
             
-            # Show window
-            if config.UI_FULLSCREEN:
-                main_window.showFullScreen()
-            else:
-                main_window.show()
+            # Run Flask app with SocketIO
+            socketio.run(app, host=host, port=port, debug=debug)
             
-            # Setup periodic timer for async tasks
-            timer = QTimer()
-            timer.timeout.connect(self._process_async_tasks)
-            timer.start(100)  # 100ms interval
+            return 0
             
-            self.ui_app = app
-            logger.info("UI application started")
-            
-            # Run Qt event loop
-            return app.exec()
-        
-        except ImportError:
-            logger.error("PySide6 not available, running in console mode")
-            return self.run_console_mode()
-        except Exception as e:
-            logger.error(f"Failed to start UI: {e}")
+        except ImportError as e:
+            logger.error(f"Flask dependencies not available: {e}")
+            logger.error("Please install Flask requirements: pip install Flask flask-socketio eventlet")
             return 1
-    
-    def _process_async_tasks(self):
-        """Process async tasks from Qt timer"""
-        # This would process any pending async tasks in the event loop
-        pass
-    
-    def run_console_mode(self):
-        """Run in console mode without UI"""
-        logger.info("Running in console mode")
-        logger.info("Coffee machine agent is running...")
-        logger.info("Press Ctrl+C to stop")
-        
-        try:
-            # Keep running until interrupted
-            while self.running:
-                import time
-                time.sleep(1)
-        except KeyboardInterrupt:
-            logger.info("Received interrupt signal")
-        
-        return 0
+        except Exception as e:
+            logger.error(f"Failed to start Web UI: {e}")
+            return 1
     
     def setup_signal_handlers(self):
         """Setup signal handlers for graceful shutdown"""
         def signal_handler(signum, frame):
             logger.info(f"Received signal {signum}")
             self.running = False
-            if self.ui_app:
-                self.ui_app.quit()
+            # Flask app shutdown will be handled by Flask itself
         
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
     
-    async def run(self):
-        """Main run method"""
-        logger.info("Starting Smart Coffee Machine...")
+    def run(self):
+        """Main run method - synchronous for Flask"""
+        logger.info("Starting Smart Coffee Machine Web Application...")
         logger.info(f"Device ID: {config.DEVICE_ID}")
         logger.info(f"Backend URL: {config.BACKEND_BASE_URL}")
         logger.info(f"UI Language: {config.UI_LANG}")
+        logger.info("UI Type: Web Browser Interface")
         
         self.running = True
         self.setup_signal_handlers()
         
         try:
-            # Start background agent
-            await self.start_agent()
-            
-            # Log system status
-            status = agent_supervisor.get_supervisor_status()
-            logger.info(f"Agent supervisor status: {status['running']}")
-            
-            # Start UI (this will block until UI closes)
-            ui_result = self.start_ui()
-            
+            # Start Web UI (this will block until server stops)
+            ui_result = self.start_web_ui()
             return ui_result
         
+        except KeyboardInterrupt:
+            logger.info("Application interrupted by user")
+            return 0
+        except Exception as e:
+            logger.exception(f"Application error: {e}")
+            return 1
         finally:
-            # Cleanup
-            await self.stop_agent()
             logger.info("Smart Coffee Machine stopped")
 
-async def main():
+def main():
     """Main entry point"""
     app = CoffeeMachineApp()
-    return await app.run()
-
-def sync_main():
-    """Synchronous main entry point"""
-    try:
-        # Run async main
-        return asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("Application interrupted")
-        return 0
-    except Exception as e:
-        logger.exception(f"Application error: {e}")
-        return 1
+    return app.run()
 
 if __name__ == "__main__":
-    exit_code = sync_main()
+    exit_code = main()
     sys.exit(exit_code)
