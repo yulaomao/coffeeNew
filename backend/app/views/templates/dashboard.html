@@ -1,0 +1,147 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Dashboard - Coffee Admin{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mt-3 mb-4">
+            <i class="bi bi-speedometer2"></i> Dashboard
+        </h1>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row">
+    <div class="col-md-2">
+        <div class="card bg-primary text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-cpu fs-1"></i>
+                <h4>{{ device_total }}</h4>
+                <p class="mb-0">Total Devices</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-wifi fs-1"></i>
+                <h4>{{ online_rate }}%</h4>
+                <p class="mb-0">Online Rate</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-currency-yen fs-1"></i>
+                <h4>¥{{ "%.2f"|format(sales_today) }}</h4>
+                <p class="mb-0">Sales Today</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card bg-secondary text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-graph-up fs-1"></i>
+                <h4>¥{{ "%.2f"|format(sales_week) }}</h4>
+                <p class="mb-0">Sales (7 days)</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-exclamation-triangle fs-1"></i>
+                <h4>{{ alarms_open }}</h4>
+                <p class="mb-0">Open Alarms</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <div class="card bg-danger text-white">
+            <div class="card-body text-center">
+                <i class="bi bi-box fs-1"></i>
+                <h4>{{ materials_low }}</h4>
+                <p class="mb-0">Low Materials</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <!-- Recent Orders -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-receipt"></i> Recent Orders</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_orders %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Device</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in recent_orders %}
+                            <tr>
+                                <td><code>{{ order.order_id }}</code></td>
+                                <td>{{ order.device_id }}</td>
+                                <td>¥{{ "%.2f"|format(order.total_price) }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if order.payment_status.value == 'paid' else 'warning' }}">
+                                        {{ order.payment_status.value.title() }}
+                                    </span>
+                                </td>
+                                <td>{{ order.server_ts.strftime('%H:%M') if order.server_ts else 'N/A' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No recent orders</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Alarms -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-exclamation-triangle"></i> Recent Alarms</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_alarms %}
+                {% for alarm in recent_alarms %}
+                <div class="alert alert-{{ 'danger' if alarm.severity.value == 'critical' else ('warning' if alarm.severity.value == 'warn' else 'info') }} alert-sm py-2">
+                    <strong>{{ alarm.title }}</strong><br>
+                    <small>{{ alarm.device_id }} - {{ alarm.created_at.strftime('%H:%M') if alarm.created_at else 'N/A' }}</small>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p class="text-muted">No recent alarms</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-refresh dashboard every 30 seconds
+setInterval(function() {
+    // In a real implementation, you would use AJAX to refresh data
+    // For now, just show that the feature exists
+}, 30000);
+</script>
+{% endblock %}

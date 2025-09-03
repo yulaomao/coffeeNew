@@ -1,0 +1,27 @@
+/* Custom styles for Coffee Admin */
+
+.alert-sm {
+    padding: 0.375rem 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.navbar-brand {
+    font-weight: bold;
+}
+
+.table-responsive {
+    border-radius: 0.375rem;
+}
+
+.status-online { color: #198754; }
+.status-offline { color: #dc3545; }
+.status-maintenance { color: #ffc107; }
+
+.material-low {
+    border-left: 3px solid #dc3545;
+}
