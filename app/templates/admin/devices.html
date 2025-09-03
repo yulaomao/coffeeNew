@@ -3,60 +3,359 @@
 {% block title %}Devices - Coffee Admin{% endblock %}
 
 {% block content %}
-<div class="row">
+<div class="row mb-4">
     <div class="col-12">
-        <h2>Devices Management</h2>
+        <h2><i class="bi bi-cpu"></i> Device Management</h2>
+        <p class="text-muted">Monitor and manage your coffee machines</p>
     </div>
 </div>
 
+<!-- Filters -->
 <div class="row mb-3">
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <h5>Device List</h5>
+                <h6><i class="bi bi-funnel"></i> Filters</h6>
             </div>
             <div class="card-body">
-                <p class="text-muted">Device management interface will be implemented here.</p>
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Device ID</th>
-                                <th>Alias</th>
-                                <th>Model</th>
-                                <th>Status</th>
-                                <th>Last Seen</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>CM001</td>
-                                <td>Downtown Coffee Machine</td>
-                                <td>CM-2000</td>
-                                <td><span class="badge bg-success">Online</span></td>
-                                <td>2 mins ago</td>
-                                <td>
-                                    <button class="btn btn-sm btn-primary">Manage</button>
-                                    <button class="btn btn-sm btn-warning">Command</button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>CM002</td>
-                                <td>Mall Coffee Machine</td>
-                                <td>CM-2000</td>
-                                <td><span class="badge bg-danger">Offline</span></td>
-                                <td>2 hours ago</td>
-                                <td>
-                                    <button class="btn btn-sm btn-primary">Manage</button>
-                                    <button class="btn btn-sm btn-secondary" disabled>Command</button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="searchQuery" class="form-label">Search</label>
+                        <input type="text" class="form-control" id="searchQuery" placeholder="Device ID or alias..." value="{{ query }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="statusFilter" class="form-label">Status</label>
+                        <select class="form-select" id="statusFilter">
+                            <option value="">All Status</option>
+                            <option value="online" {{ 'selected' if status == 'online' }}>Online</option>
+                            <option value="offline" {{ 'selected' if status == 'offline' }}>Offline</option>
+                            <option value="fault" {{ 'selected' if status == 'fault' }}>Fault</option>
+                            <option value="maintenance" {{ 'selected' if status == 'maintenance' }}>Maintenance</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="modelFilter" class="form-label">Model</label>
+                        <select class="form-select" id="modelFilter">
+                            <option value="">All Models</option>
+                            <option value="CM-2000" {{ 'selected' if model == 'CM-2000' }}>CM-2000</option>
+                            <option value="CM-1000" {{ 'selected' if model == 'CM-1000' }}>CM-1000</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="addressFilter" class="form-label">Location</label>
+                        <input type="text" class="form-control" id="addressFilter" placeholder="Address...">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <div>
+                            <button type="button" class="btn btn-primary" onclick="applyFilters()">
+                                <i class="bi bi-search"></i> Apply
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="clearFilters()">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Device List -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="bi bi-list"></i> Device List <span id="deviceCount" class="badge bg-secondary">0</span></h5>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadDevices()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                    </button>
+                    <button class="btn btn-sm btn-warning" onclick="bulkCommand()">
+                        <i class="bi bi-broadcast"></i> Bulk Command
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="loadingIndicator" class="text-center py-3">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading devices...</p>
+                </div>
+                <div class="table-responsive" id="deviceTable" style="display: none;">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>
+                                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                                </th>
+                                <th>Device ID</th>
+                                <th>Alias</th>
+                                <th>Model</th>
+                                <th>Status</th>
+                                <th>Last Seen</th>
+                                <th>Location</th>
+                                <th>Temperature</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deviceTableBody">
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                <nav aria-label="Device pagination" id="pagination" style="display: none;">
+                    <ul class="pagination justify-content-center" id="paginationList">
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentPage = 1;
+let currentFilters = {};
+let selectedDevices = new Set();
+
+async function loadDevices(page = 1) {
+    try {
+        document.getElementById('loadingIndicator').style.display = 'block';
+        document.getElementById('deviceTable').style.display = 'none';
+        document.getElementById('pagination').style.display = 'none';
+        
+        const params = new URLSearchParams({
+            page: page,
+            page_size: 20,
+            ...currentFilters
+        });
+        
+        const data = await apiCall(`/devices?${params}`);
+        
+        displayDevices(data.devices);
+        updatePagination(data.pagination);
+        updateDeviceCount(data.pagination.total);
+        
+        currentPage = page;
+        
+    } catch (error) {
+        console.error('Failed to load devices:', error);
+        document.getElementById('deviceTableBody').innerHTML = 
+            '<tr><td colspan="9" class="text-center text-danger">Failed to load devices</td></tr>';
+    } finally {
+        document.getElementById('loadingIndicator').style.display = 'none';
+        document.getElementById('deviceTable').style.display = 'block';
+    }
+}
+
+function displayDevices(devices) {
+    const tbody = document.getElementById('deviceTableBody');
+    tbody.innerHTML = '';
+    
+    devices.forEach(device => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>
+                <input type="checkbox" class="device-checkbox" value="${device.device_id}" 
+                       onchange="toggleDeviceSelection('${device.device_id}')">
+            </td>
+            <td>
+                <a href="/devices/${device.device_id}" class="text-decoration-none">
+                    <strong>${device.device_id}</strong>
+                </a>
+            </td>
+            <td>${device.alias}</td>
+            <td>
+                <span class="badge bg-light text-dark">${device.model}</span>
+                <small class="text-muted d-block">v${device.fw_version}</small>
+            </td>
+            <td>${getStatusBadge(device.status)}</td>
+            <td>
+                <span class="text-${getLastSeenClass(device.last_seen)}">
+                    ${formatLastSeen(device.last_seen)}
+                </span>
+            </td>
+            <td>
+                <strong>${device.location?.name || 'N/A'}</strong>
+                <small class="text-muted d-block">${device.location?.address || ''}</small>
+            </td>
+            <td>
+                ${device.temperature ? `${device.temperature}°C` : '<span class="text-muted">N/A</span>'}
+            </td>
+            <td>
+                <div class="btn-group btn-group-sm">
+                    <a href="/devices/${device.device_id}" class="btn btn-outline-primary">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                    <button class="btn btn-outline-warning" onclick="sendCommand('${device.device_id}')" 
+                            ${device.status === 'offline' ? 'disabled' : ''}>
+                        <i class="bi bi-broadcast"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'online': '<span class="badge bg-success">Online</span>',
+        'offline': '<span class="badge bg-danger">Offline</span>',
+        'fault': '<span class="badge bg-warning text-dark">Fault</span>',
+        'maintenance': '<span class="badge bg-info">Maintenance</span>',
+        'registered': '<span class="badge bg-secondary">Registered</span>'
+    };
+    return badges[status] || '<span class="badge bg-secondary">Unknown</span>';
+}
+
+function getLastSeenClass(lastSeen) {
+    const now = new Date();
+    const seenDate = new Date(lastSeen);
+    const diffMinutes = (now - seenDate) / (1000 * 60);
+    
+    if (diffMinutes < 5) return 'success';
+    if (diffMinutes < 60) return 'warning';
+    return 'danger';
+}
+
+function formatLastSeen(lastSeen) {
+    const now = new Date();
+    const seenDate = new Date(lastSeen);
+    const diffMinutes = Math.floor((now - seenDate) / (1000 * 60));
+    
+    if (diffMinutes < 1) return 'Just now';
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
+}
+
+function updatePagination(pagination) {
+    const paginationList = document.getElementById('paginationList');
+    const paginationDiv = document.getElementById('pagination');
+    
+    if (pagination.pages <= 1) {
+        paginationDiv.style.display = 'none';
+        return;
+    }
+    
+    paginationDiv.style.display = 'block';
+    paginationList.innerHTML = '';
+    
+    // Previous button
+    const prevLi = document.createElement('li');
+    prevLi.className = `page-item ${pagination.page <= 1 ? 'disabled' : ''}`;
+    prevLi.innerHTML = `<a class="page-link" href="#" onclick="loadDevices(${pagination.page - 1})">Previous</a>`;
+    paginationList.appendChild(prevLi);
+    
+    // Page numbers
+    const startPage = Math.max(1, pagination.page - 2);
+    const endPage = Math.min(pagination.pages, pagination.page + 2);
+    
+    for (let i = startPage; i <= endPage; i++) {
+        const li = document.createElement('li');
+        li.className = `page-item ${i === pagination.page ? 'active' : ''}`;
+        li.innerHTML = `<a class="page-link" href="#" onclick="loadDevices(${i})">${i}</a>`;
+        paginationList.appendChild(li);
+    }
+    
+    // Next button
+    const nextLi = document.createElement('li');
+    nextLi.className = `page-item ${pagination.page >= pagination.pages ? 'disabled' : ''}`;
+    nextLi.innerHTML = `<a class="page-link" href="#" onclick="loadDevices(${pagination.page + 1})">Next</a>`;
+    paginationList.appendChild(nextLi);
+}
+
+function updateDeviceCount(total) {
+    document.getElementById('deviceCount').textContent = total;
+}
+
+function applyFilters() {
+    currentFilters = {
+        query: document.getElementById('searchQuery').value,
+        status: document.getElementById('statusFilter').value,
+        model: document.getElementById('modelFilter').value,
+        address: document.getElementById('addressFilter').value
+    };
+    
+    // Remove empty filters
+    Object.keys(currentFilters).forEach(key => {
+        if (!currentFilters[key]) {
+            delete currentFilters[key];
+        }
+    });
+    
+    loadDevices(1);
+}
+
+function clearFilters() {
+    document.getElementById('searchQuery').value = '';
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('modelFilter').value = '';
+    document.getElementById('addressFilter').value = '';
+    currentFilters = {};
+    loadDevices(1);
+}
+
+function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.device-checkbox');
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAll.checked;
+        if (selectAll.checked) {
+            selectedDevices.add(checkbox.value);
+        } else {
+            selectedDevices.delete(checkbox.value);
+        }
+    });
+}
+
+function toggleDeviceSelection(deviceId) {
+    if (selectedDevices.has(deviceId)) {
+        selectedDevices.delete(deviceId);
+    } else {
+        selectedDevices.add(deviceId);
+    }
+    
+    // Update select all checkbox
+    const checkboxes = document.querySelectorAll('.device-checkbox');
+    const selectAll = document.getElementById('selectAll');
+    selectAll.checked = checkboxes.length > 0 && Array.from(checkboxes).every(cb => cb.checked);
+}
+
+function sendCommand(deviceId) {
+    showAlert(`Command feature will be implemented for device ${deviceId}`, 'info');
+}
+
+function bulkCommand() {
+    if (selectedDevices.size === 0) {
+        showAlert('Please select at least one device', 'warning');
+        return;
+    }
+    
+    showAlert(`Bulk command feature will be implemented for ${selectedDevices.size} devices`, 'info');
+}
+
+// Load devices when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    loadDevices();
+});
+
+// Apply filters on Enter key
+document.getElementById('searchQuery').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        applyFilters();
+    }
+});
+</script>
 {% endblock %}

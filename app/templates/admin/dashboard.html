@@ -3,64 +3,256 @@
 {% block title %}Dashboard - Coffee Admin{% endblock %}
 
 {% block content %}
-<div class="row">
+<div class="row mb-4">
     <div class="col-12">
-        <h2>Dashboard</h2>
+        <h2><i class="bi bi-speedometer2"></i> Dashboard</h2>
+        <p class="text-muted">Real-time overview of your coffee operations</p>
     </div>
 </div>
 
-<div class="row">
+<!-- KPI Cards -->
+<div class="row mb-4" id="kpi-cards">
     <div class="col-md-3">
         <div class="card bg-primary text-white">
             <div class="card-body">
-                <h5 class="card-title">Total Devices</h5>
-                <h3 class="card-text">3</h3>
-                <small>2 online, 1 offline</small>
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title"><i class="bi bi-cpu"></i> Total Devices</h5>
+                        <h3 class="card-text" id="device-total">...</h3>
+                        <small id="device-status">Loading...</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-cpu" style="font-size: 2rem; opacity: 0.6;"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="card bg-success text-white">
             <div class="card-body">
-                <h5 class="card-title">Sales Today</h5>
-                <h3 class="card-text">¥245</h3>
-                <small>12 orders</small>
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title"><i class="bi bi-cash-coin"></i> Sales Today</h5>
+                        <h3 class="card-text" id="sales-today">...</h3>
+                        <small id="sales-orders">Loading...</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-cash-coin" style="font-size: 2rem; opacity: 0.6;"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="card bg-warning text-dark">
             <div class="card-body">
-                <h5 class="card-title">Low Materials</h5>
-                <h3 class="card-text">2</h3>
-                <small>Need refill</small>
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title"><i class="bi bi-box-seam"></i> Low Materials</h5>
+                        <h3 class="card-text" id="materials-low">...</h3>
+                        <small>Need refill</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-box-seam" style="font-size: 2rem; opacity: 0.6;"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     <div class="col-md-3">
         <div class="card bg-danger text-white">
             <div class="card-body">
-                <h5 class="card-title">Open Alarms</h5>
-                <h3 class="card-text">1</h3>
-                <small>Device offline</small>
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title"><i class="bi bi-exclamation-triangle"></i> Open Alarms</h5>
+                        <h3 class="card-text" id="alarms-open">...</h3>
+                        <small>Require attention</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-exclamation-triangle" style="font-size: 2rem; opacity: 0.6;"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row mt-4">
-    <div class="col-12">
+<!-- Charts Row -->
+<div class="row mb-4">
+    <div class="col-md-8">
         <div class="card">
             <div class="card-header">
-                <h5>Quick Actions</h5>
+                <h5><i class="bi bi-bar-chart"></i> Sales Trend (Last 7 Days)</h5>
             </div>
             <div class="card-body">
-                <a href="{{ url_for('admin.devices') }}" class="btn btn-primary me-2">Manage Devices</a>
-                <a href="{{ url_for('admin.orders') }}" class="btn btn-success me-2">View Orders</a>
-                <button class="btn btn-warning me-2">Check Alarms</button>
-                <button class="btn btn-info">Export Data</button>
+                <canvas id="salesChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-wifi"></i> Device Online Rate</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="onlineChart" height="200"></canvas>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Quick Actions -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="bi bi-lightning"></i> Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <a href="{{ url_for('admin.devices') }}" class="btn btn-primary me-2">
+                    <i class="bi bi-cpu"></i> Manage Devices
+                </a>
+                <a href="{{ url_for('admin.orders') }}" class="btn btn-success me-2">
+                    <i class="bi bi-receipt"></i> View Orders
+                </a>
+                <a href="{{ url_for('admin.alarms') }}" class="btn btn-warning me-2">
+                    <i class="bi bi-exclamation-triangle"></i> Check Alarms
+                </a>
+                <a href="{{ url_for('admin.materials') }}" class="btn btn-info me-2">
+                    <i class="bi bi-box-seam"></i> Materials
+                </a>
+                <button class="btn btn-secondary" onclick="refreshDashboard()">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let salesChart, onlineChart;
+
+async function loadDashboardData() {
+    try {
+        const data = await apiCall('/dashboard/summary');
+        
+        // Update KPI cards
+        document.getElementById('device-total').textContent = data.device_total;
+        document.getElementById('device-status').textContent = 
+            `${data.online_rate.toFixed(1)}% online`;
+        
+        document.getElementById('sales-today').textContent = 
+            formatCurrency(data.sales_today.amount, data.sales_today.currency);
+        document.getElementById('sales-orders').textContent = 
+            `${data.sales_today.orders_count} orders`;
+        
+        document.getElementById('materials-low').textContent = data.materials_low;
+        document.getElementById('alarms-open').textContent = data.alarms_open;
+        
+        // Update charts
+        updateSalesChart(data.trends.sales);
+        updateOnlineChart(data.trends.online_rate);
+        
+    } catch (error) {
+        console.error('Failed to load dashboard data:', error);
+        showAlert('Failed to load dashboard data', 'danger');
+    }
+}
+
+function updateSalesChart(salesData) {
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    
+    if (salesChart) {
+        salesChart.destroy();
+    }
+    
+    salesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: salesData.map(item => {
+                const date = new Date(item.date);
+                return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
+            }),
+            datasets: [{
+                label: 'Daily Sales (¥)',
+                data: salesData.map(item => item.amount),
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '¥' + value.toFixed(0);
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+}
+
+function updateOnlineChart(onlineData) {
+    const ctx = document.getElementById('onlineChart').getContext('2d');
+    
+    if (onlineChart) {
+        onlineChart.destroy();
+    }
+    
+    // Calculate average online rate
+    const avgOnlineRate = onlineData.reduce((sum, item) => sum + item.rate, 0) / onlineData.length;
+    
+    onlineChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Online', 'Offline'],
+            datasets: [{
+                data: [avgOnlineRate, 100 - avgOnlineRate],
+                backgroundColor: [
+                    'rgba(40, 167, 69, 0.8)',
+                    'rgba(220, 53, 69, 0.8)'
+                ],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+async function refreshDashboard() {
+    showAlert('Refreshing dashboard...', 'info');
+    await loadDashboardData();
+    showAlert('Dashboard refreshed successfully', 'success');
+}
+
+// Load data when page loads
+document.addEventListener('DOMContentLoaded', loadDashboardData);
+
+// Auto-refresh every 5 minutes
+setInterval(loadDashboardData, 5 * 60 * 1000);
+</script>
 {% endblock %}
