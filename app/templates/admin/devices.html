@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Devices - Coffee Admin{% endblock %}
+{% block title %}设备 - 咖啡管理{% endblock %}
 
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
-        <h2><i class="bi bi-cpu"></i> Device Management</h2>
-        <p class="text-muted">Monitor and manage your coffee machines</p>
+    <h2><i class="bi bi-cpu"></i> 设备管理</h2>
+    <p class="text-muted">监控并管理您的咖啡机</p>
     </div>
 </div>
 
@@ -20,13 +20,13 @@
             <div class="card-body">
                 <div class="row g-3">
                     <div class="col-md-3">
-                        <label for="searchQuery" class="form-label">Search</label>
-                        <input type="text" class="form-control" id="searchQuery" placeholder="Device ID or alias..." value="{{ query }}">
+                        <label for="searchQuery" class="form-label">搜索</label>
+                        <input type="text" class="form-control" id="searchQuery" placeholder="设备 ID 或 昵称..." value="{{ query }}">
                     </div>
                     <div class="col-md-2">
-                        <label for="statusFilter" class="form-label">Status</label>
+                        <label for="statusFilter" class="form-label">状态</label>
                         <select class="form-select" id="statusFilter">
-                            <option value="">All Status</option>
+                            <option value="">全部状态</option>
                             <option value="online" {{ 'selected' if status == 'online' }}>Online</option>
                             <option value="offline" {{ 'selected' if status == 'offline' }}>Offline</option>
                             <option value="fault" {{ 'selected' if status == 'fault' }}>Fault</option>
@@ -34,25 +34,25 @@
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <label for="modelFilter" class="form-label">Model</label>
+                        <label for="modelFilter" class="form-label">型号</label>
                         <select class="form-select" id="modelFilter">
-                            <option value="">All Models</option>
+                            <option value="">全部型号</option>
                             <option value="CM-2000" {{ 'selected' if model == 'CM-2000' }}>CM-2000</option>
                             <option value="CM-1000" {{ 'selected' if model == 'CM-1000' }}>CM-1000</option>
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label for="addressFilter" class="form-label">Location</label>
-                        <input type="text" class="form-control" id="addressFilter" placeholder="Address...">
+                        <label for="addressFilter" class="form-label">位置</label>
+                        <input type="text" class="form-control" id="addressFilter" placeholder="地址...">
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">&nbsp;</label>
                         <div>
                             <button type="button" class="btn btn-primary" onclick="applyFilters()">
-                                <i class="bi bi-search"></i> Apply
+                                <i class="bi bi-search"></i> 应用
                             </button>
                             <button type="button" class="btn btn-outline-secondary" onclick="clearFilters()">
-                                <i class="bi bi-x-circle"></i>
+                                <i class="bi bi-x-circle"></i> 清除
                             </button>
                         </div>
                     </div>
@@ -67,13 +67,13 @@
     <div class="col-12">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5><i class="bi bi-list"></i> Device List <span id="deviceCount" class="badge bg-secondary">0</span></h5>
+                <h5><i class="bi bi-list"></i> 设备列表 <span id="deviceCount" class="badge bg-secondary">0</span></h5>
                 <div>
                     <button class="btn btn-sm btn-outline-primary" onclick="loadDevices()">
-                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                        <i class="bi bi-arrow-clockwise"></i> 刷新
                     </button>
                     <button class="btn btn-sm btn-warning" onclick="bulkCommand()">
-                        <i class="bi bi-broadcast"></i> Bulk Command
+                        <i class="bi bi-broadcast"></i> 批量下发
                     </button>
                 </div>
             </div>
@@ -91,14 +91,14 @@
                                 <th>
                                     <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
                                 </th>
-                                <th>Device ID</th>
-                                <th>Alias</th>
-                                <th>Model</th>
-                                <th>Status</th>
-                                <th>Last Seen</th>
-                                <th>Location</th>
-                                <th>Temperature</th>
-                                <th>Actions</th>
+                                <th>设备 ID</th>
+                                <th>昵称</th>
+                                <th>型号</th>
+                                <th>状态</th>
+                                <th>最后在线</th>
+                                <th>位置</th>
+                                <th>温度</th>
+                                <th>操作</th>
                             </tr>
                         </thead>
                         <tbody id="deviceTableBody">

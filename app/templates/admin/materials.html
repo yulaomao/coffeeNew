@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Materials - Coffee Admin{% endblock %}
+{% block title %}物料 - 咖啡管理{% endblock %}
 
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
-        <h2><i class="bi bi-box-seam"></i> Materials Management</h2>
-        <p class="text-muted">Manage material dictionary and device bin assignments</p>
+    <h2><i class="bi bi-box-seam"></i> 物料管理</h2>
+    <p class="text-muted">管理物料字典与设备料仓分配</p>
     </div>
 </div>
 
@@ -18,13 +18,13 @@
                 <h5><i class="bi bi-journal-text"></i> Material Dictionary</h5>
                 <div>
                     <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addMaterialModal">
-                        <i class="bi bi-plus-circle"></i> Add Material
+                        <i class="bi bi-plus-circle"></i> 添加物料
                     </button>
                     <button class="btn btn-info btn-sm" onclick="importMaterials()">
-                        <i class="bi bi-upload"></i> Import CSV
+                        <i class="bi bi-upload"></i> 导入 CSV
                     </button>
                     <button class="btn btn-outline-primary btn-sm" onclick="loadMaterials()">
-                        <i class="bi bi-arrow-clockwise"></i> Refresh
+                        <i class="bi bi-arrow-clockwise"></i> 刷新
                     </button>
                 </div>
             </div>
@@ -40,13 +40,13 @@
                     <table class="table table-hover">
                         <thead>
                             <tr>
-                                <th>Code</th>
-                                <th>Name</th>
-                                <th>Type</th>
-                                <th>Unit</th>
-                                <th>Density</th>
-                                <th>Status</th>
-                                <th>Actions</th>
+                                <th>编码</th>
+                                <th>名称</th>
+                                <th>类型</th>
+                                <th>单位</th>
+                                <th>密度</th>
+                                <th>状态</th>
+                                <th>操作</th>
                             </tr>
                         </thead>
                         <tbody id="materialTableBody">

@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - Coffee Admin{% endblock %}
+{% block title %}仪表盘 - 咖啡管理{% endblock %}
 
 {% block content %}
 <div class="row mb-4">
     <div class="col-12">
-        <h2><i class="bi bi-speedometer2"></i> Dashboard</h2>
-        <p class="text-muted">Real-time overview of your coffee operations</p>
+    <h2><i class="bi bi-speedometer2"></i> 仪表盘</h2>
+    <p class="text-muted">实时概览您的咖啡运营情况</p>
     </div>
 </div>
 
@@ -17,9 +17,9 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <h5 class="card-title"><i class="bi bi-cpu"></i> Total Devices</h5>
+                        <h5 class="card-title"><i class="bi bi-cpu"></i> 设备总数</h5>
                         <h3 class="card-text" id="device-total">...</h3>
-                        <small id="device-status">Loading...</small>
+                        <small id="device-status">加载中...</small>
                     </div>
                     <div class="align-self-center">
                         <i class="bi bi-cpu" style="font-size: 2rem; opacity: 0.6;"></i>
@@ -33,9 +33,9 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <h5 class="card-title"><i class="bi bi-cash-coin"></i> Sales Today</h5>
+                        <h5 class="card-title"><i class="bi bi-cash-coin"></i> 今日销售</h5>
                         <h3 class="card-text" id="sales-today">...</h3>
-                        <small id="sales-orders">Loading...</small>
+                        <small id="sales-orders">加载中...</small>
                     </div>
                     <div class="align-self-center">
                         <i class="bi bi-cash-coin" style="font-size: 2rem; opacity: 0.6;"></i>
@@ -49,9 +49,9 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <h5 class="card-title"><i class="bi bi-box-seam"></i> Low Materials</h5>
+                        <h5 class="card-title"><i class="bi bi-box-seam"></i> 物料不足</h5>
                         <h3 class="card-text" id="materials-low">...</h3>
-                        <small>Need refill</small>
+                        <small>需要补充</small>
                     </div>
                     <div class="align-self-center">
                         <i class="bi bi-box-seam" style="font-size: 2rem; opacity: 0.6;"></i>
@@ -65,9 +65,9 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
-                        <h5 class="card-title"><i class="bi bi-exclamation-triangle"></i> Open Alarms</h5>
+                        <h5 class="card-title"><i class="bi bi-exclamation-triangle"></i> 未处理告警</h5>
                         <h3 class="card-text" id="alarms-open">...</h3>
-                        <small>Require attention</small>
+                        <small>需要关注</small>
                     </div>
                     <div class="align-self-center">
                         <i class="bi bi-exclamation-triangle" style="font-size: 2rem; opacity: 0.6;"></i>
@@ -83,7 +83,7 @@
     <div class="col-md-8">
         <div class="card">
             <div class="card-header">
-                <h5><i class="bi bi-bar-chart"></i> Sales Trend (Last 7 Days)</h5>
+                <h5><i class="bi bi-bar-chart"></i> 销售趋势（最近7天）</h5>
             </div>
             <div class="card-body">
                 <canvas id="salesChart" height="100"></canvas>
@@ -93,7 +93,7 @@
     <div class="col-md-4">
         <div class="card">
             <div class="card-header">
-                <h5><i class="bi bi-wifi"></i> Device Online Rate</h5>
+                <h5><i class="bi bi-wifi"></i> 设备在线率</h5>
             </div>
             <div class="card-body">
                 <canvas id="onlineChart" height="200"></canvas>
@@ -107,23 +107,23 @@
     <div class="col-12">
         <div class="card">
             <div class="card-header">
-                <h5><i class="bi bi-lightning"></i> Quick Actions</h5>
+                <h5><i class="bi bi-lightning"></i> 快速操作</h5>
             </div>
             <div class="card-body">
                 <a href="{{ url_for('admin.devices') }}" class="btn btn-primary me-2">
-                    <i class="bi bi-cpu"></i> Manage Devices
+                    <i class="bi bi-cpu"></i> 管理设备
                 </a>
                 <a href="{{ url_for('admin.orders') }}" class="btn btn-success me-2">
-                    <i class="bi bi-receipt"></i> View Orders
+                    <i class="bi bi-receipt"></i> 查看订单
                 </a>
                 <a href="{{ url_for('admin.alarms') }}" class="btn btn-warning me-2">
-                    <i class="bi bi-exclamation-triangle"></i> Check Alarms
+                    <i class="bi bi-exclamation-triangle"></i> 检查告警
                 </a>
                 <a href="{{ url_for('admin.materials') }}" class="btn btn-info me-2">
-                    <i class="bi bi-box-seam"></i> Materials
+                    <i class="bi bi-box-seam"></i> 物料
                 </a>
                 <button class="btn btn-secondary" onclick="refreshDashboard()">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                    <i class="bi bi-arrow-clockwise"></i> 刷新
                 </button>
             </div>
         </div>
