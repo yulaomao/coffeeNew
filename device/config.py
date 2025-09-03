@@ -32,6 +32,15 @@ class Config:
     ALLOW_QUEUE: bool = os.getenv("ALLOW_QUEUE", "false").lower() == "true"
     QUEUE_LENGTH: int = int(os.getenv("QUEUE_LENGTH", "1"))
     
+    # Web configuration
+    WEB_HOST: str = os.getenv("WEB_HOST", "0.0.0.0")
+    WEB_PORT: int = int(os.getenv("WEB_PORT", "5000"))
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "coffee-machine-secret-key-change-in-production")
+    DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
+    
+    # Security configuration
+    MAINTENANCE_PASSWORD: str = os.getenv("MAINTENANCE_PASSWORD", "0000")
+    
     # Path configuration
     ASSETS_DIR: Path = Path(os.getenv("ASSETS_DIR", "./device/assets")).resolve()
     CACHE_DIR: Path = Path(os.getenv("CACHE_DIR", appdirs.user_cache_dir("coffee_device"))).resolve()

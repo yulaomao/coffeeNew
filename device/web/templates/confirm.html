@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="confirm-container">
+    <div class="card">
+        <h2 class="card-title">确认您的订单</h2>
+        
+        <div class="order-summary">
+            <div class="order-item">
+                <h3>{{ order.product_name or "咖啡饮品" }}</h3>
+                <div class="order-details">
+                    {% for key, value in order.options.items() %}
+                        {% if key != 'product_id' %}
+                        <div class="detail-item">
+                            <span class="detail-label">
+                                {% if key == 'size' %}杯型
+                                {% elif key == 'temperature' %}温度
+                                {% elif key == 'sugar' %}糖分
+                                {% elif key == 'milk' %}奶类
+                                {% else %}{{ key }}{% endif %}:
+                            </span>
+                            <span class="detail-value">
+                                {% if key == 'temperature' and value == 'hot' %}热饮
+                                {% elif key == 'temperature' and value == 'warm' %}温饮
+                                {% elif key == 'temperature' and value == 'cold' %}冷饮
+                                {% elif key == 'sugar' and value == 'none' %}无糖
+                                {% elif key == 'sugar' and value == 'light' %}少糖
+                                {% elif key == 'sugar' and value == 'normal' %}标准
+                                {% elif key == 'sugar' and value == 'extra' %}多糖
+                                {% elif key == 'milk' and value == 'none' %}无奶
+                                {% elif key == 'milk' and value == 'whole' %}全脂牛奶
+                                {% elif key == 'milk' and value == 'skim' %}脱脂牛奶
+                                {% elif key == 'milk' and value == 'oat' %}燕麦奶
+                                {% else %}{{ value }}{% endif %}
+                            </span>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="price-summary">
+            <div class="total-price">
+                <span class="price-label">总计:</span>
+                <span class="price-value">¥{{ "%.1f" | format(order.total_price) }}</span>
+            </div>
+        </div>
+        
+        <div class="action-buttons">
+            <a href="{{ url_for('menu') }}" class="btn btn-warning">修改订单</a>
+            <a href="{{ url_for('payment') }}" class="btn btn-success btn-large">确认支付</a>
+        </div>
+    </div>
+</div>
+
+<div id="loading-overlay" class="loading-overlay" style="display: none;">
+    <div class="loading-spinner"></div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.confirm-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding-top: 40px;
+}
+
+.order-summary {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.order-item h3 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-size: 20px;
+}
+
+.order-details {
+    border-left: 3px solid #3498db;
+    padding-left: 15px;
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #ecf0f1;
+}
+
+.detail-item:last-child {
+    border-bottom: none;
+}
+
+.detail-label {
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.detail-value {
+    color: #7f8c8d;
+}
+
+.price-summary {
+    background: #27ae60;
+    color: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.total-price {
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.price-label {
+    margin-right: 15px;
+}
+
+.price-value {
+    font-size: 28px;
+}
+
+.action-buttons {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.action-buttons .btn {
+    flex: 1;
+}
+
+@media (max-width: 768px) {
+    .action-buttons {
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-proceed to payment after a delay (optional)
+    let autoPaymentTimer = null;
+    
+    function startAutoPayment() {
+        // Auto-proceed after 30 seconds of inactivity
+        autoPaymentTimer = setTimeout(() => {
+            if (confirm('是否继续进行支付？')) {
+                window.location.href = '{{ url_for("payment") }}';
+            }
+        }, 30000);
+    }
+    
+    // Clear timer on any user interaction
+    document.addEventListener('click', () => {
+        if (autoPaymentTimer) {
+            clearTimeout(autoPaymentTimer);
+            autoPaymentTimer = null;
+        }
+    });
+    
+    // Start auto-payment timer
+    // startAutoPayment(); // Uncomment to enable auto-proceed
+</script>
+{% endblock %}

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ title }}{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="header-left">
+                <h1>{% block page_title %}{{ title }}{% endblock %}</h1>
+            </div>
+            <div class="header-right">
+                <span class="device-id">{{ device_id }}</span>
+                <span class="status-indicator" id="status-indicator">●</span>
+            </div>
+        </header>
+        
+        <main class="app-content">
+            {% block content %}{% endblock %}
+        </main>
+        
+        <footer class="app-footer">
+            {% block footer %}
+            <div class="footer-info">
+                <span>智能咖啡机 Smart Coffee Machine</span>
+                <span id="current-time"></span>
+            </div>
+            {% endblock %}
+        </footer>
+    </div>
+    
+    <!-- Common JavaScript -->
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        
+        // Update status indicator
+        socket.on('status_update', function(status) {
+            const indicator = document.getElementById('status-indicator');
+            indicator.className = 'status-indicator ' + status.status;
+        });
+        
+        // Update current time
+        function updateTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN');
+            const timeEl = document.getElementById('current-time');
+            if (timeEl) {
+                timeEl.textContent = timeStr;
+            }
+        }
+        updateTime();
+        setInterval(updateTime, 1000);
+        
+        // Global functions
+        function showLoading(show = true) {
+            const loading = document.getElementById('loading-overlay');
+            if (loading) {
+                loading.style.display = show ? 'flex' : 'none';
+            }
+        }
+        
+        function showMessage(message, type = 'info') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = message;
+            document.body.appendChild(messageDiv);
+            
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 3000);
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

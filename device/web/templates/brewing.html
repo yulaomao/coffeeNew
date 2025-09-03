@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="brewing-container">
+    <div class="card">
+        <h2 class="card-title">正在制作您的饮品</h2>
+        
+        <div class="brewing-animation">
+            <div class="coffee-machine">
+                <div class="machine-body">☕</div>
+                <div class="steam-animation">💨</div>
+            </div>
+        </div>
+        
+        <div class="brewing-progress">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <div class="progress-text" id="progress-text">准备中...</div>
+        </div>
+        
+        <div class="brewing-steps">
+            <div class="step" id="step-1">
+                <div class="step-icon">🔥</div>
+                <div class="step-text">加热水温</div>
+                <div class="step-status">⏳</div>
+            </div>
+            <div class="step" id="step-2">
+                <div class="step-icon">🫘</div>
+                <div class="step-text">研磨咖啡豆</div>
+                <div class="step-status">⏳</div>
+            </div>
+            <div class="step" id="step-3">
+                <div class="step-icon">💧</div>
+                <div class="step-text">冲泡萃取</div>
+                <div class="step-status">⏳</div>
+            </div>
+            <div class="step" id="step-4">
+                <div class="step-icon">🥛</div>
+                <div class="step-text">添加配料</div>
+                <div class="step-status">⏳</div>
+            </div>
+            <div class="step" id="step-5">
+                <div class="step-icon">✅</div>
+                <div class="step-text">制作完成</div>
+                <div class="step-status">⏳</div>
+            </div>
+        </div>
+        
+        <div class="estimated-time">
+            <div class="time-label">预计剩余时间</div>
+            <div class="time-value" id="estimated-time">45 秒</div>
+        </div>
+    </div>
+</div>
+
+<div id="loading-overlay" class="loading-overlay" style="display: none;">
+    <div class="loading-spinner"></div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.brewing-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding-top: 20px;
+}
+
+.brewing-animation {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.coffee-machine {
+    position: relative;
+    display: inline-block;
+}
+
+.machine-body {
+    font-size: 80px;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.steam-animation {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 24px;
+    animation: steam 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@keyframes steam {
+    0% { opacity: 0; transform: translateX(-50%) translateY(0px); }
+    50% { opacity: 1; transform: translateX(-50%) translateY(-10px); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+}
+
+.brewing-progress {
+    margin: 30px 0;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 12px;
+    background: #ecf0f1;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 15px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #27ae60, #2ecc71);
+    border-radius: 6px;
+    width: 0%;
+    transition: width 0.5s ease;
+    animation: glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+    from { box-shadow: 0 0 5px rgba(46, 204, 113, 0.5); }
+    to { box-shadow: 0 0 20px rgba(46, 204, 113, 0.8); }
+}
+
+.progress-text {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.brewing-steps {
+    margin: 30px 0;
+}
+
+.step {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    margin: 8px 0;
+    border-radius: 8px;
+    transition: all 0.3s;
+}
+
+.step.active {
+    background: #f0f8ff;
+    border: 2px solid #3498db;
+}
+
+.step.completed {
+    background: #f0f9f0;
+    border: 2px solid #27ae60;
+}
+
+.step-icon {
+    font-size: 24px;
+    margin-right: 15px;
+    width: 40px;
+    text-align: center;
+}
+
+.step-text {
+    flex: 1;
+    font-size: 16px;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+.step-status {
+    font-size: 20px;
+}
+
+.step.active .step-status {
+    animation: spin 1s linear infinite;
+}
+
+.step.completed .step-status {
+    content: '✅';
+}
+
+.estimated-time {
+    text-align: center;
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 30px;
+}
+
+.time-label {
+    font-size: 16px;
+    color: #7f8c8d;
+    margin-bottom: 10px;
+}
+
+.time-value {
+    font-size: 32px;
+    font-weight: 600;
+    color: #f39c12;
+}
+
+@media (max-width: 768px) {
+    .brewing-container {
+        padding-top: 10px;
+    }
+    
+    .machine-body {
+        font-size: 60px;
+    }
+    
+    .steam-animation {
+        font-size: 20px;
+    }
+    
+    .step {
+        padding: 10px;
+    }
+    
+    .step-icon {
+        font-size: 20px;
+        margin-right: 10px;
+        width: 30px;
+    }
+    
+    .step-text {
+        font-size: 14px;
+    }
+    
+    .time-value {
+        font-size: 24px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let brewingProgress = 0;
+    let currentStep = 0;
+    let estimatedTime = 45;
+    
+    const steps = [
+        { name: '准备中...', duration: 5 },
+        { name: '加热水温中...', duration: 8 },
+        { name: '研磨咖啡豆中...', duration: 10 },
+        { name: '冲泡萃取中...', duration: 15 },
+        { name: '添加配料中...', duration: 5 },
+        { name: '制作完成！', duration: 2 }
+    ];
+    
+    function updateProgress() {
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+        const timeValue = document.getElementById('estimated-time');
+        
+        // Update progress bar
+        progressFill.style.width = brewingProgress + '%';
+        
+        // Update current step
+        if (currentStep < steps.length) {
+            progressText.textContent = steps[currentStep].name;
+            
+            // Update step status
+            document.querySelectorAll('.step').forEach((step, index) => {
+                if (index < currentStep) {
+                    step.className = 'step completed';
+                    step.querySelector('.step-status').textContent = '✅';
+                } else if (index === currentStep) {
+                    step.className = 'step active';
+                } else {
+                    step.className = 'step';
+                }
+            });
+        }
+        
+        // Update estimated time
+        timeValue.textContent = Math.max(0, estimatedTime) + ' 秒';
+    }
+    
+    function simulateBrewing() {
+        const interval = setInterval(() => {
+            // Update progress
+            brewingProgress += 2;
+            estimatedTime -= 1;
+            
+            // Check if we should move to next step
+            const progressPerStep = 100 / (steps.length - 1);
+            const expectedStep = Math.floor(brewingProgress / progressPerStep);
+            
+            if (expectedStep > currentStep && currentStep < steps.length - 1) {
+                currentStep = expectedStep;
+            }
+            
+            updateProgress();
+            
+            // Check if brewing is complete
+            if (brewingProgress >= 100) {
+                clearInterval(interval);
+                currentStep = steps.length - 1;
+                updateProgress();
+                
+                setTimeout(() => {
+                    window.location.href = '/done';
+                }, 2000);
+            }
+        }, 500);
+    }
+    
+    // Start brewing simulation
+    simulateBrewing();
+    
+    // Initial update
+    updateProgress();
+    
+    // Get real brewing status from API (optional)
+    function checkBrewingStatus() {
+        fetch('/api/brewing/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.progress !== undefined) {
+                brewingProgress = data.progress;
+                currentStep = data.step || currentStep;
+                estimatedTime = data.estimated_time || estimatedTime;
+                updateProgress();
+            }
+        })
+        .catch(error => {
+            console.error('Brewing status check error:', error);
+        });
+    }
+    
+    // Uncomment to use real API status checks
+    // setInterval(checkBrewingStatus, 2000);
+</script>
+{% endblock %}
