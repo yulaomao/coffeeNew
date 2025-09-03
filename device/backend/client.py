@@ -16,7 +16,9 @@ class BackendClient:
         self.device_token = config.DEVICE_TOKEN
         self.timeout = httpx.Timeout(
             connect=HTTP_CONNECT_TIMEOUT,
-            read=HTTP_READ_TIMEOUT
+            read=HTTP_READ_TIMEOUT,
+            write=HTTP_READ_TIMEOUT,
+            pool=HTTP_READ_TIMEOUT
         )
         
         # Default headers
